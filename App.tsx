@@ -242,12 +242,10 @@ const App: React.FC = () => {
     }
   };
 
-  // Fix: Added missing getSubmittedCount function
   const getSubmittedCount = (assignment: Assignment) => {
     return Object.values(assignment.submissions || {}).filter(s => s.isSubmitted).length;
   };
 
-  // Fix: Added missing updateSubmission function
   const updateSubmission = (assignmentId: string, studentId: string, field: keyof SubmissionData, value: any) => {
     setClasses(prev => prev.map(c => {
       if (c.id === activeClassId) {
@@ -273,7 +271,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // Fix: Added missing handleAddOrEditAssignment function
   const handleAddOrEditAssignment = () => {
     if (!activeClassId || !adminFormData.assignTitle) return;
     
@@ -313,6 +310,13 @@ const App: React.FC = () => {
         ? prev.schedule.filter(d => d !== day) 
         : [...prev.schedule, day].sort()
     }));
+  };
+
+  const handleSaveAttendance = () => {
+    // Data sebenarnya sudah tersimpan di localStorage via useEffect,
+    // tombol ini memberikan konfirmasi visual bagi user.
+    localStorage.setItem('attendance_v5', JSON.stringify(attendance));
+    showToast('Presensi berhasil disimpan ke memori lokal!', 'success');
   };
 
   if (!isAuthenticated) {
@@ -398,6 +402,10 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <button onClick={handleSaveAttendance} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700 transition-all mr-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
+                    Simpan
+                  </button>
                   <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
                   <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
                 </div>
@@ -645,7 +653,6 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* ... Tab Siswa, Database, Cloud tetap sama seperti kode sebelumnya ... */}
               {adminTab === 'Siswa' && (
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
