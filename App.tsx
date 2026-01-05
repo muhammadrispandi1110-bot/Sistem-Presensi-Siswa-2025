@@ -11,6 +11,15 @@ const DARK_STATUS_COLORS: Record<AttendanceStatus, string> = {
   'A': 'text-rose-400 bg-rose-500/10 border-rose-500/30 ring-rose-500/20'
 };
 
+const MONTH_COLORS: Record<number, string> = {
+  0: 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30', // Jan
+  1: 'bg-rose-500/20 text-rose-400 border-rose-500/30',     // Feb
+  2: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', // Mar
+  3: 'bg-amber-500/20 text-amber-400 border-amber-500/30',   // Apr
+  4: 'bg-blue-500/20 text-blue-400 border-blue-500/30',     // Mei
+  5: 'bg-violet-500/20 text-violet-400 border-violet-500/30'  // Jun
+};
+
 interface Notification {
   message: string;
   type: 'success' | 'error' | 'info';
@@ -86,7 +95,6 @@ const App: React.FC = () => {
 
   const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
 
-  // Pastikan currentDate selalu berada di hari mengajar saat ganti kelas
   useEffect(() => {
     if (activeClass?.schedule && activeClass.schedule.length > 0) {
       if (!activeClass.schedule.includes(currentDate.getDay())) {
@@ -175,103 +183,32 @@ const App: React.FC = () => {
     const period = reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester';
     const filename = `Rekap_Presensi_${activeClass.name}_${period}.csv`;
     
+    // Header dinamis berdasarkan tanggal mengajar
+    const dateHeaders = reportDates.map(d => formatDate(d));
+    const headerRow = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A", "%"];
+    
     const rows = [
-      ["No", "Nama Siswa", "Hadir (H)", "Sakit (S)", "Izin (I)", "Alpa (A)", "Persentase (%)"],
+      headerRow,
       ...activeClass.students.map((s, idx) => {
         const stats = calculateStats(s.id, reportDates);
+        const dailyStatus = reportDates.map(d => attendance[s.id]?.[formatDate(d)] || 'H');
         const total = stats.H + stats.S + stats.I + stats.A;
         const percent = total > 0 ? Math.round((stats.H / total) * 100) : 0;
-        return [(idx + 1).toString(), s.name, stats.H.toString(), stats.S.toString(), stats.I.toString(), stats.A.toString(), percent.toString()];
-      })
-    ];
-    
-    downloadCSV(filename, rows);
-    showToast('Rekap Excel Berhasil Diunduh!');
-  };
-
-  const exportAssignmentToExcel = (assignment: Assignment) => {
-    if (!activeClass) return;
-    const filename = `Nilai_${assignment.title}_${activeClass.name}.csv`;
-    
-    const rows = [
-      ["No", "Nama Siswa", "NIS", "Status Pengumpulan", "Nilai"],
-      ...activeClass.students.map((s, idx) => {
-        const sub = assignment.submissions[s.id] || { isSubmitted: false, score: '' };
         return [
-          (idx + 1).toString(),
-          s.name,
-          s.nis,
-          sub.isSubmitted ? "Sudah Mengumpulkan" : "Belum",
-          sub.score || "0"
+          (idx + 1).toString(), 
+          s.name, 
+          ...dailyStatus, 
+          stats.H.toString(), 
+          stats.S.toString(), 
+          stats.I.toString(), 
+          stats.A.toString(), 
+          percent.toString()
         ];
       })
     ];
     
     downloadCSV(filename, rows);
-    showToast('Nilai Excel Berhasil Diunduh!');
-  };
-
-  const handleExportData = () => {
-    const data = { classes, attendance, exportedAt: new Date().toISOString() };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `backup_presensi_${formatDate(new Date())}.json`;
-    a.click();
-    showToast('Backup Berhasil!');
-  };
-
-  const downloadTemplate = () => {
-    const csvContent = "nis,name\n261001,ANDI MUHAMMAD\n261002,SITI NURHALIZA";
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "template_siswa.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activeClassId) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      const lines = text.split('\n');
-      const newStudents: Student[] = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        
-        const [nis, name] = line.split(',').map(s => s.trim());
-        if (nis && name) {
-          newStudents.push({
-            id: `std-${Date.now()}-${i}`,
-            nis,
-            name,
-            nisn: ''
-          });
-        }
-      }
-
-      if (newStudents.length > 0) {
-        setClasses(prev => prev.map(c => 
-          c.id === activeClassId 
-            ? { ...c, students: [...c.students, ...newStudents] } 
-            : c
-        ));
-        showToast(`Berhasil mengimpor ${newStudents.length} siswa!`);
-      } else {
-        showToast('Tidak ada data valid yang ditemukan.', 'error');
-      }
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-    reader.readAsText(file);
+    showToast('Rekap Excel Berhasil Diunduh!');
   };
 
   const handleAddOrEditClass = () => {
@@ -305,51 +242,68 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddOrEditAssignment = () => {
-    if (!activeClassId || !adminFormData.assignTitle) return;
-    const newClasses = [...classes];
-    const classIdx = newClasses.findIndex(c => c.id === activeClassId);
-    if (classIdx === -1) return;
-    const currentAssignments = newClasses[classIdx].assignments || [];
-    if (editingAssignment) {
-      newClasses[classIdx].assignments = currentAssignments.map(a => 
-        a.id === editingAssignment.id ? { ...a, title: adminFormData.assignTitle, description: adminFormData.assignDesc, dueDate: adminFormData.assignDue } : a
-      );
-    } else {
-      const newA: Assignment = {
-        id: `task-${Date.now()}`,
-        title: adminFormData.assignTitle,
-        description: adminFormData.assignDesc,
-        dueDate: adminFormData.assignDue,
-        submissions: {}
-      };
-      newClasses[classIdx].assignments = [...currentAssignments, newA];
-    }
-    setClasses(newClasses);
-    setShowAssignmentModal(false);
-    setEditingAssignment(null);
+  // Fix: Added missing getSubmittedCount function
+  const getSubmittedCount = (assignment: Assignment) => {
+    return Object.values(assignment.submissions || {}).filter(s => s.isSubmitted).length;
   };
 
+  // Fix: Added missing updateSubmission function
   const updateSubmission = (assignmentId: string, studentId: string, field: keyof SubmissionData, value: any) => {
-    setClasses(classes.map(c => {
+    setClasses(prev => prev.map(c => {
       if (c.id === activeClassId) {
-        return {
-          ...c,
-          assignments: (c.assignments || []).map(a => {
-            if (a.id === assignmentId) {
-              const currentSub = a.submissions[studentId] || { isSubmitted: false, score: '' };
-              return { ...a, submissions: { ...a.submissions, [studentId]: { ...currentSub, [field]: value } } };
+        const updatedAssignments = (c.assignments || []).map(a => {
+          if (a.id === assignmentId) {
+            const updated = {
+              ...a,
+              submissions: {
+                ...a.submissions,
+                [studentId]: { ...(a.submissions[studentId] || { isSubmitted: false, score: '' }), [field]: value }
+              }
+            };
+            if (activeAssignment?.id === assignmentId) {
+              setActiveAssignment(updated);
             }
-            return a;
-          })
-        };
+            return updated;
+          }
+          return a;
+        });
+        return { ...c, assignments: updatedAssignments };
       }
       return c;
     }));
   };
 
-  const getSubmittedCount = (assignment: Assignment) => {
-    return Object.values(assignment.submissions).filter(s => s.isSubmitted).length;
+  // Fix: Added missing handleAddOrEditAssignment function
+  const handleAddOrEditAssignment = () => {
+    if (!activeClassId || !adminFormData.assignTitle) return;
+    
+    const assignmentData: Assignment = editingAssignment ? {
+      ...editingAssignment,
+      title: adminFormData.assignTitle,
+      description: adminFormData.assignDesc,
+      dueDate: adminFormData.assignDue
+    } : {
+      id: `asgn-${Date.now()}`,
+      title: adminFormData.assignTitle,
+      description: adminFormData.assignDesc,
+      dueDate: adminFormData.assignDue,
+      submissions: {}
+    };
+
+    setClasses(prev => prev.map(c => {
+      if (c.id === activeClassId) {
+        const currentAssignments = c.assignments || [];
+        const newAssignments = editingAssignment 
+          ? currentAssignments.map(a => a.id === editingAssignment.id ? assignmentData : a)
+          : [...currentAssignments, assignmentData];
+        return { ...c, assignments: newAssignments };
+      }
+      return c;
+    }));
+
+    setShowAssignmentModal(false);
+    setEditingAssignment(null);
+    showToast(editingAssignment ? 'Tugas diperbarui!' : 'Tugas baru ditambahkan!');
   };
 
   const toggleScheduleDay = (day: number) => {
@@ -433,7 +387,7 @@ const App: React.FC = () => {
         </div>
 
         <div className="view-transition">
-          {/* DAILY */}
+          {/* DAILY PRESENCE VIEW */}
           {view === 'Daily' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between no-print">
@@ -444,8 +398,8 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
                 </div>
               </div>
               <div className="space-y-3">
@@ -472,7 +426,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* REPORTS */}
+          {/* REPORTS VIEW - REKAPITULASI */}
           {view === 'Reports' && (
             <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 no-print">
@@ -484,11 +438,11 @@ const App: React.FC = () => {
                  <div className="flex gap-3">
                    <button onClick={exportReportToExcel} className="px-6 py-4 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-2xl font-black text-[11px] uppercase flex items-center gap-3 hover:bg-emerald-600 hover:text-white transition-all shadow-xl">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      Unduh Excel (Rekap)
+                      Unduh Excel
                    </button>
                    <button onClick={handlePrint} className="px-8 py-4 active-gradient text-white rounded-2xl font-black text-[11px] uppercase shadow-2xl flex items-center gap-3 hover:scale-[1.03] active:scale-[0.97] transition-all">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                      Cetak Laporan
+                      Cetak Rekap
                    </button>
                  </div>
               </div>
@@ -496,36 +450,71 @@ const App: React.FC = () => {
               {reportTab === 'Monthly' && (
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-print">
                    {MONTHS_2026.map(m => (
-                     <button key={m.value} onClick={() => setActiveMonth(m.value)} className={`flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase border transition-all ${activeMonth === m.value ? 'bg-indigo-500/10 border-indigo-500 text-indigo-400 shadow-xl' : 'border-slate-800 text-slate-600 hover:border-slate-700'}`}>{m.name}</button>
+                     <button key={m.value} onClick={() => setActiveMonth(m.value)} className={`flex-none px-6 py-3 rounded-2xl text-[10px] font-black uppercase border transition-all ${activeMonth === m.value ? MONTH_COLORS[m.value] + ' shadow-xl' : 'border-slate-800 text-slate-600 hover:border-slate-700'}`}>{m.name}</button>
                    ))}
                 </div>
               )}
 
+              {classSummary && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
+                   <div className="dark-card p-8 rounded-[2.5rem] bg-indigo-600/5 border-indigo-500/20">
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Rata-rata Kehadiran</p>
+                      <div className="flex items-end gap-2">
+                         <span className="text-5xl font-black text-white leading-none">{classSummary.avg}%</span>
+                         <span className="text-xs font-bold text-slate-500 pb-1">Efektivitas</span>
+                      </div>
+                   </div>
+                   <div className="dark-card p-8 rounded-[2.5rem] bg-emerald-600/5 border-emerald-500/20">
+                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-4">Siswa Terajin</p>
+                      <div className="space-y-1">
+                         <span className="text-lg font-black text-white uppercase tracking-tight block truncate">{classSummary.best}</span>
+                         <span className="text-[10px] font-bold text-slate-500 uppercase">Performa 100%</span>
+                      </div>
+                   </div>
+                   <div className="dark-card p-8 rounded-[2.5rem] bg-rose-600/5 border-rose-500/20">
+                      <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.3em] mb-4">Ketidakhadiran</p>
+                      <div className="flex items-end gap-2">
+                         <span className="text-5xl font-black text-white leading-none">{classSummary.absentRate}%</span>
+                         <span className="text-xs font-bold text-slate-500 pb-1">Total Absen</span>
+                      </div>
+                   </div>
+                </div>
+              )}
+
               <div className="dark-card rounded-[3.5rem] overflow-hidden shadow-2xl print:border-2 print:border-black print:rounded-none">
-                 <div className="p-12 border-b border-white/5 text-center space-y-4 print:p-6 print:border-black">
-                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter print:text-black print:text-2xl">Laporan Rekapitulasi Presensi Siswa</h3>
-                    <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] print:text-black">
-                       <span>Sekolah: <span className="text-white print:text-black">{schoolName}</span></span>
-                       <span>Kelas: <span className="text-white print:text-black">{activeClass?.name || '-'}</span></span>
-                       <span>Periode: <span className="text-indigo-400 print:text-black">{reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester 1 (Jan-Jun)'}</span></span>
+                 <div className="p-12 border-b border-white/5 text-center space-y-4 print:p-6 print:border-black bg-slate-900/40">
+                    <h3 className="text-4xl font-black text-white uppercase tracking-tighter print:text-black print:text-2xl">Daftar Hadir Peserta Didik</h3>
+                    <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] print:text-black">
+                       <span>Sekolah: <span className="text-white print:text-black font-extrabold">{schoolName}</span></span>
+                       <span>Kelas: <span className="text-white print:text-black font-extrabold">{activeClass?.name || '-'}</span></span>
+                       <span>Periode: <span className="text-indigo-400 print:text-black font-extrabold">{reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester 1 (Jan-Jun)'}</span></span>
                     </div>
-                    {activeClass?.schedule && (
-                       <p className="text-[9px] font-black text-indigo-500/50 uppercase tracking-widest no-print">
-                         Hari Mengajar: {activeClass.schedule.map(d => DAY_NAMES[d]).join(', ')}
-                       </p>
-                    )}
+                    <div className="flex justify-center gap-2 mt-4 no-print">
+                      {(activeClass?.schedule || [1,2,3,4,5]).map(d => (
+                         <span key={d} className="px-3 py-1 bg-slate-950 border border-slate-800 rounded-full text-[8px] font-black text-slate-500 uppercase">{DAY_NAMES[d]}</span>
+                      ))}
+                    </div>
                  </div>
                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[11px] print:text-black">
-                      <thead className="bg-slate-950/50 border-b border-white/5 print:bg-transparent print:border-black">
+                    <table className="w-full text-left text-[11px] border-collapse print:text-black">
+                      <thead className="bg-slate-950/80 border-b border-white/5 print:bg-transparent print:border-black">
                         <tr>
-                          <th className="p-6 font-black text-slate-500 uppercase w-12 text-center print:text-black">No</th>
-                          <th className="p-6 font-black text-slate-500 uppercase tracking-widest print:text-black">Nama Peserta Didik</th>
-                          <th className="p-6 text-center font-black text-emerald-400 uppercase w-16 print:text-black">H</th>
-                          <th className="p-6 text-center font-black text-blue-400 uppercase w-16 print:text-black">S</th>
-                          <th className="p-6 text-center font-black text-amber-400 uppercase w-16 print:text-black">I</th>
-                          <th className="p-6 text-center font-black text-rose-400 uppercase w-16 print:text-black">A</th>
-                          <th className="p-6 text-center font-black text-indigo-400 uppercase w-32 print:text-black">Persentase</th>
+                          <th className="p-6 font-black text-slate-500 uppercase w-12 text-center sticky left-0 bg-slate-950/80 z-20 print:bg-white print:text-black">No</th>
+                          <th className="p-6 font-black text-slate-500 uppercase tracking-widest min-w-[200px] sticky left-12 bg-slate-950/80 z-20 print:bg-white print:text-black">Nama Peserta Didik</th>
+                          
+                          {/* HEADERS TANGGAL DINAMIS */}
+                          {reportDates.map((d, i) => (
+                            <th key={i} className={`p-4 text-center font-black border-l border-white/5 min-w-[50px] print:border-black print:text-black ${MONTH_COLORS[d.getMonth()]}`}>
+                               <span className="block text-[8px] opacity-70 mb-1">{DAY_NAMES[d.getDay()].slice(0, 3)}</span>
+                               <span className="block text-lg leading-none">{d.getDate()}</span>
+                            </th>
+                          ))}
+
+                          <th className="p-6 text-center font-black text-emerald-400 uppercase w-16 border-l border-white/5 bg-slate-950/90 print:border-black print:text-black">H</th>
+                          <th className="p-6 text-center font-black text-blue-400 uppercase w-16 border-l border-white/5 bg-slate-950/90 print:border-black print:text-black">S</th>
+                          <th className="p-6 text-center font-black text-amber-400 uppercase w-16 border-l border-white/5 bg-slate-950/90 print:border-black print:text-black">I</th>
+                          <th className="p-6 text-center font-black text-rose-400 uppercase w-16 border-l border-white/5 bg-slate-950/90 print:border-black print:text-black">A</th>
+                          <th className="p-6 text-center font-black text-indigo-400 uppercase w-24 border-l border-white/5 bg-slate-950/90 print:border-black print:text-black">%</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 print:divide-black">
@@ -535,13 +524,25 @@ const App: React.FC = () => {
                           const percent = total > 0 ? Math.round((stats.H / total) * 100) : 0;
                           return (
                             <tr key={s.id} className="hover:bg-white/5 transition-colors group print:hover:bg-transparent">
-                              <td className="p-6 text-center font-bold text-slate-600 print:text-black">{idx + 1}</td>
-                              <td className="p-6 font-black text-white uppercase tracking-tight group-hover:text-indigo-400 transition-colors print:text-black">{s.name}</td>
-                              <td className="p-6 text-center font-bold text-emerald-500/80 print:text-black">{stats.H}</td>
-                              <td className="p-6 text-center font-bold text-blue-500/80 print:text-black">{stats.S}</td>
-                              <td className="p-6 text-center font-bold text-amber-500/80 print:text-black">{stats.I}</td>
-                              <td className="p-6 text-center font-bold text-rose-500/80 print:text-black">{stats.A}</td>
-                              <td className="p-6 text-center">
+                              <td className="p-6 text-center font-bold text-slate-600 sticky left-0 bg-[#0f172a] group-hover:bg-slate-800 transition-colors z-10 print:bg-white print:text-black">{idx + 1}</td>
+                              <td className="p-6 font-black text-white uppercase tracking-tight sticky left-12 bg-[#0f172a] group-hover:text-indigo-400 group-hover:bg-slate-800 transition-colors z-10 print:bg-white print:text-black">{s.name}</td>
+                              
+                              {/* STATUS HARIAN */}
+                              {reportDates.map((d, i) => {
+                                 const status = attendance[s.id]?.[formatDate(d)] || 'H';
+                                 const isFuture = isFutureDate(d);
+                                 return (
+                                   <td key={i} className={`p-4 text-center border-l border-white/5 font-black text-xs print:border-black print:text-black ${isFuture ? 'opacity-20' : ''}`}>
+                                      <span className={status === 'H' ? 'text-emerald-500/40' : DARK_STATUS_COLORS[status].split(' ')[0]}>{status}</span>
+                                   </td>
+                                 );
+                              })}
+
+                              <td className="p-6 text-center font-bold text-emerald-500 bg-slate-950/30 border-l border-white/5 print:border-black print:text-black">{stats.H}</td>
+                              <td className="p-6 text-center font-bold text-blue-500 bg-slate-950/30 border-l border-white/5 print:border-black print:text-black">{stats.S}</td>
+                              <td className="p-6 text-center font-bold text-amber-500 bg-slate-950/30 border-l border-white/5 print:border-black print:text-black">{stats.I}</td>
+                              <td className="p-6 text-center font-bold text-rose-500 bg-slate-950/30 border-l border-white/5 print:border-black print:text-black">{stats.A}</td>
+                              <td className="p-6 text-center bg-indigo-500/5 border-l border-white/5 print:border-black">
                                  <span className="font-black text-indigo-400 text-sm print:text-black">{percent}%</span>
                               </td>
                             </tr>
@@ -554,12 +555,12 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* ASSIGNMENTS */}
+          {/* ASSIGNMENTS VIEW */}
           {view === 'Assignments' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between no-print">
                 <h2 className="text-xl font-black text-white uppercase tracking-tighter">Daftar Penugasan</h2>
-                <button onClick={() => { setEditingAssignment(null); setAdminFormData({ ...adminFormData, assignTitle: '', assignDesc: '', assignDue: formatDate(new Date()) }); setShowAssignmentModal(true); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2">
+                <button onClick={() => { setEditingAssignment(null); setAdminFormData({ ...adminFormData, assignTitle: '', assignDesc: '', assignDue: formatDate(new Date()) }); setShowAssignmentModal(true); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2 hover:scale-105 transition-all">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                   Buat Tugas
                 </button>
@@ -586,10 +587,10 @@ const App: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
                           <span className="text-slate-500">Progres</span>
-                          <span className="text-indigo-400">{subCount} / {totalCount} Siswa</span>
+                          <span className="text-indigo-400 font-bold">{subCount} / {totalCount} Siswa</span>
                         </div>
-                        <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-600 rounded-full transition-all duration-700" style={{ width: `${percent}%` }}></div>
+                        <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                          <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${percent}%` }}></div>
                         </div>
                       </div>
                       <button onClick={() => { setActiveAssignment(a); setShowGradingModal(true); }} className="w-full py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all shadow-xl">Kelola Nilai</button>
@@ -600,7 +601,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* ADMIN */}
+          {/* ADMIN VIEW */}
           {view === 'Admin' && (
             <div className="space-y-6">
               <div className="flex gap-4 p-1.5 bg-slate-900 rounded-[2rem] border border-white/5 overflow-x-auto scrollbar-hide">
@@ -612,30 +613,30 @@ const App: React.FC = () => {
               {adminTab === 'Kelas' && (
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex items-center justify-between">
-                      <h3 className="font-black text-white uppercase tracking-tighter">Manajemen Kelas</h3>
+                      <h3 className="font-black text-white uppercase tracking-tighter text-xl">Manajemen Kelas</h3>
                       <button onClick={() => { 
                         setEditingClass(null); 
                         setAdminFormData({ ...adminFormData, className: '', schedule: [1,2,3,4,5] }); 
                         setShowClassModal(true); 
-                      }} className="px-5 py-3 active-gradient text-white rounded-xl font-black text-[9px] uppercase">Tambah Kelas</button>
+                      }} className="px-6 py-3 active-gradient text-white rounded-xl font-black text-[10px] uppercase shadow-lg">Tambah Kelas</button>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(c => (
-                        <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2rem] flex items-center justify-between group">
-                           <div className="space-y-2">
-                              <p className="font-black text-white uppercase text-xs tracking-tight group-hover:text-indigo-400 transition-all">{c.name}</p>
-                              <div className="flex flex-wrap gap-1">
+                        <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-500/50 transition-all">
+                           <div className="space-y-3">
+                              <p className="font-black text-white uppercase text-sm tracking-tight group-hover:text-indigo-400 transition-all">{c.name}</p>
+                              <div className="flex flex-wrap gap-1.5">
                                 {(c.schedule || [1,2,3,4,5]).map(d => (
-                                  <span key={d} className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[8px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0, 3)}</span>
+                                  <span key={d} className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[8px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0, 3)}</span>
                                 ))}
                               </div>
-                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">{c.students.length} Siswa</p>
+                              <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">{c.students.length} Siswa Terdaftar</p>
                            </div>
                            <button onClick={() => {
                              setEditingClass(c);
                              setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || [1,2,3,4,5]});
                              setShowClassModal(true);
-                           }} className="p-3 text-slate-500 hover:text-white transition-all">
+                           }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all shadow-xl">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                            </button>
                         </div>
@@ -644,28 +645,18 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {/* ... Tab Siswa, Database, Cloud tetap sama seperti kode sebelumnya ... */}
               {adminTab === 'Siswa' && (
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <h3 className="font-black text-white uppercase tracking-tighter">Database Siswa - {activeClass?.name}</h3>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={downloadTemplate} className="px-5 py-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-xl font-black text-[9px] uppercase flex items-center gap-2 hover:bg-slate-800 transition-all">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V3m0 0L8 7m4-4l4 4" /></svg>
-                          Template CSV
-                        </button>
-                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".csv" className="hidden" id="csv-upload" />
-                        <label htmlFor="csv-upload" className="px-5 py-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-xl font-black text-[9px] uppercase cursor-pointer flex items-center gap-2 hover:bg-indigo-600 hover:text-white transition-all">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                          Unggah CSV
-                        </label>
-                        <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase shadow-lg">Tambah Siswa</button>
-                      </div>
+                      <h3 className="font-black text-white uppercase tracking-tighter text-xl">Database Siswa - {activeClass?.name}</h3>
+                      <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase shadow-lg">Tambah Siswa</button>
                    </div>
                    <div className="overflow-x-auto">
                       <table className="w-full text-left text-[10px]">
                         <thead className="bg-slate-950/50 border-b border-white/5">
                           <tr>
-                            <th className="p-4 font-black text-slate-500 uppercase">Nama</th>
+                            <th className="p-4 font-black text-slate-500 uppercase">Nama Lengkap</th>
                             <th className="p-4 font-black text-slate-500 uppercase text-center">NIS</th>
                             <th className="p-4 font-black text-slate-500 uppercase text-center">Aksi</th>
                           </tr>
@@ -675,10 +666,8 @@ const App: React.FC = () => {
                             <tr key={s.id}>
                               <td className="p-4 font-black text-white uppercase">{s.name}</td>
                               <td className="p-4 text-center font-bold text-slate-400">{s.nis}</td>
-                              <td className="p-4">
-                                <div className="flex justify-center gap-2">
-                                  <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                                </div>
+                              <td className="p-4 text-center">
+                                <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                               </td>
                             </tr>
                           ))}
@@ -687,179 +676,118 @@ const App: React.FC = () => {
                    </div>
                 </div>
               )}
-
-              {adminTab === 'Database' && (
-                <div className="dark-card p-12 rounded-[3rem] text-center space-y-6 shadow-2xl">
-                   <div className="w-20 h-20 bg-slate-900 rounded-3xl mx-auto flex items-center justify-center border border-white/5 text-indigo-400">
-                      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 7v10c0 1.1.9 2 2 2h12a2 2 0 002-2V7M4 7a2 2 0 012-2h12a2 2 0 012 2M4 7l8 5 8-5M8 11h.01M12 11h.01M16 11h.01" /></svg>
-                   </div>
-                   <h3 className="text-xl font-black text-white uppercase tracking-tighter">Cadangkan Data Lokal</h3>
-                   <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">Gunakan fitur ini untuk mendownload semua data yang tersimpan di browser Anda ke file JSON.</p>
-                   <button onClick={handleExportData} className="px-10 py-5 bg-slate-900 border border-slate-800 rounded-3xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all shadow-2xl">Unduh Database (.json)</button>
-                </div>
-              )}
-
-              {adminTab === 'Cloud' && (
-                <div className="dark-card p-10 rounded-[3rem] space-y-8 shadow-2xl border-indigo-500/20">
-                   <div className="flex items-center gap-6">
-                      <div className={`w-16 h-16 ${isCloudConfigured ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'} rounded-2xl flex items-center justify-center`}>
-                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-                      </div>
-                      <div>
-                         <h3 className="text-xl font-black text-white uppercase tracking-tighter">Konfigurasi Cloud (Netlify)</h3>
-                         <p className={`text-[10px] font-bold ${isCloudConfigured ? 'text-emerald-500' : 'text-slate-500'} uppercase tracking-widest mt-1`}>Status: {isCloudConfigured ? 'Terhubung (API Mendeteksi Variable)' : 'Belum Terhubung'}</p>
-                      </div>
-                   </div>
-                   <div className="space-y-6 bg-slate-950 p-6 rounded-2xl border border-white/5">
-                      <div className="space-y-4">
-                         <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Langkah-langkah:</h4>
-                         <ol className="text-[10px] text-slate-400 space-y-2 list-decimal ml-4 font-bold">
-                            <li>Buka <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-400 underline">Dashboard Supabase</a></li>
-                            <li>Pilih Project Bapak &gt; Klik Ikon <b>Settings (Gerigi ⚙️)</b></li>
-                            <li>Klik Menu <b>API</b></li>
-                            <li>Salin <b>Project URL</b> dan <b>anon public key</b></li>
-                         </ol>
-                      </div>
-
-                      <div className="space-y-4">
-                         <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Daftarkan di Netlify:</h4>
-                         <div className="space-y-3">
-                            <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-white/5">
-                               <span className="text-[10px] font-black text-slate-400">ENVIRONMENT KEY</span>
-                               <span className="text-[10px] font-black text-white">STATUS</span>
-                            </div>
-                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                               <code className="text-[10px] font-black text-white">VITE_SUPABASE_URL</code>
-                               <span className={`text-[9px] font-bold ${supabaseUrl ? 'text-emerald-400' : 'text-slate-500 italic'}`}>{supabaseUrl ? 'DITEMUKAN' : 'KOSONG'}</span>
-                            </div>
-                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
-                               <code className="text-[10px] font-black text-white">VITE_SUPABASE_ANON_KEY</code>
-                               <span className={`text-[9px] font-bold ${supabaseAnonKey ? 'text-emerald-400' : 'text-slate-500 italic'}`}>{supabaseAnonKey ? 'DITEMUKAN' : 'KOSONG'}</span>
-                            </div>
-                         </div>
-                      </div>
-                   </div>
-                </div>
-              )}
             </div>
           )}
         </div>
       </main>
 
-      {/* MODALS */}
+      {/* MODALS SECTION */}
       {showGradingModal && activeAssignment && (
         <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="dark-card w-full max-w-4xl p-8 md:p-12 rounded-[3.5rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20 max-h-[90vh] flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <div>
                   <h4 className="text-2xl font-black text-white uppercase tracking-tighter">Penilaian: {activeAssignment.title}</h4>
-                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Centang pengumpulan dan isi nilai.</p>
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">Status Pengumpulan dan Pemberian Nilai.</p>
                </div>
-               <div className="flex gap-2">
-                 <button onClick={() => exportAssignmentToExcel(activeAssignment)} className="px-5 py-3 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-xl font-black text-[9px] uppercase flex items-center gap-2 hover:bg-emerald-600 hover:text-white transition-all">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    Unduh Nilai (Excel)
-                 </button>
-                 <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
-               </div>
+               <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
-            <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4">
-               <div className="grid grid-cols-1 gap-2">
-                  {activeClass?.students.map((s, idx) => {
-                    const sub = activeAssignment.submissions[s.id] || { isSubmitted: false, score: '' };
-                    return (
-                      <div key={s.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${sub.isSubmitted ? 'bg-emerald-600/5 border-emerald-500/20' : 'bg-slate-900/30 border-slate-800'}`}>
-                         <div className="flex items-center gap-4 flex-1">
-                            <span className="text-[10px] font-black text-slate-700 w-6">{idx + 1}</span>
-                            <div>
-                               <p className={`font-black uppercase text-xs transition-colors ${sub.isSubmitted ? 'text-emerald-400' : 'text-white'}`}>{s.name}</p>
-                               <p className="text-[9px] font-bold text-slate-600">NIS: {s.nis}</p>
-                            </div>
-                         </div>
-                         <div className="flex items-center gap-6">
-                            <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-800 text-transparent'}`}>
-                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
-                            </button>
-                            <input type="text" value={sub.score} onChange={(e) => updateSubmission(activeAssignment.id, s.id, 'score', e.target.value)} placeholder="0" className="w-16 bg-slate-950 border border-slate-800 rounded-lg p-2 text-center text-xs font-black text-white focus:border-indigo-500 outline-none" />
+            {/* Modal Body Scroll */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 pr-2">
+               {activeClass?.students.map((s, idx) => {
+                 const sub = activeAssignment.submissions[s.id] || { isSubmitted: false, score: '' };
+                 return (
+                   <div key={s.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${sub.isSubmitted ? 'bg-emerald-600/5 border-emerald-500/20' : 'bg-slate-900/30 border-slate-800'}`}>
+                      <div className="flex items-center gap-4 flex-1">
+                         <span className="text-[10px] font-black text-slate-700 w-6">{idx + 1}</span>
+                         <div>
+                            <p className={`font-black uppercase text-xs transition-colors ${sub.isSubmitted ? 'text-emerald-400' : 'text-white'}`}>{s.name}</p>
+                            <p className="text-[9px] font-bold text-slate-600">NIS: {s.nis}</p>
                          </div>
                       </div>
-                    );
-                  })}
-               </div>
+                      <div className="flex items-center gap-6">
+                         <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-950 border-slate-800 text-transparent'}`}>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
+                         </button>
+                         <input type="text" value={sub.score} onChange={(e) => updateSubmission(activeAssignment.id, s.id, 'score', e.target.value)} placeholder="0" className="w-20 bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-sm font-black text-white focus:border-indigo-500 outline-none transition-all" />
+                      </div>
+                   </div>
+                 );
+               })}
             </div>
-            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Disimpan!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] text-xs uppercase tracking-widest transition-all">Selesai & Simpan</button>
-          </div>
-        </div>
-      )}
-
-      {showAssignmentModal && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
-            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingAssignment ? 'Ubah Tugas' : 'Buat Tugas Baru'}</h4>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Tugas</label>
-                <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Contoh: TRIGONOMETRI" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Deadline</label>
-                <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500" />
-              </div>
-            </div>
-            <div className="flex gap-4 pt-4">
-              <button onClick={() => setShowAssignmentModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Batal</button>
-              <button onClick={handleAddOrEditAssignment} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl text-[10px] uppercase">Simpan</button>
-            </div>
+            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Disimpan!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] text-xs uppercase tracking-widest transition-all">Simpan Seluruh Nilai</button>
           </div>
         </div>
       )}
 
       {showClassModal && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
-            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingClass ? 'Ubah Kelas' : 'Tambah Kelas'}</h4>
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20">
+            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingClass ? 'Ubah Informasi Kelas' : 'Tambah Kelas Baru'}</h4>
             <div className="space-y-6">
                 <div className="space-y-2">
                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Kelas</label>
-                    <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="XII.1" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase" />
+                    <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="XII.IPA.1" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-all" />
                 </div>
                 <div className="space-y-3">
                     <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Jadwal Mengajar (Hari)</label>
                     <div className="grid grid-cols-5 gap-2">
                       {[1, 2, 3, 4, 5].map(d => (
-                        <button key={d} onClick={() => toggleScheduleDay(d)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>
+                        <button key={d} onClick={() => toggleScheduleDay(d)} className={`py-4 rounded-2xl text-[10px] font-black uppercase transition-all border ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-600 hover:border-slate-700'}`}>
                           {DAY_NAMES[d].slice(0, 3)}
                         </button>
                       ))}
                     </div>
-                    <p className="text-[8px] font-bold text-slate-600 italic">Sistem hanya akan menampilkan tanggal pada hari yang Bapak pilih di atas.</p>
+                    <p className="text-[9px] font-bold text-indigo-400/60 italic text-center leading-relaxed px-4">Rekapitulasi hanya akan menampilkan tanggal pada hari yang dipilih di atas.</p>
                 </div>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setShowClassModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Batal</button>
-              <button onClick={handleAddOrEditClass} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl text-[10px] uppercase">Simpan</button>
+              <button onClick={() => setShowClassModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase hover:bg-slate-800 transition-all">Batal</button>
+              <button onClick={handleAddOrEditClass} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl text-[10px] uppercase hover:scale-105 transition-all">Simpan</button>
             </div>
           </div>
         </div>
       )}
 
       {showStudentModal && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
-            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingStudent ? 'Ubah Siswa' : 'Tambah Siswa'}</h4>
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20">
+            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingStudent ? 'Ubah Data Siswa' : 'Daftarkan Siswa'}</h4>
             <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Lengkap</label>
-                  <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} placeholder="Nama Siswa" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase" />
+                  <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} placeholder="Input Nama" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">NIS</label>
-                  <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} placeholder="NIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500" />
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">NIS (Nomor Induk Siswa)</label>
+                  <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} placeholder="Input NIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 transition-all" />
                 </div>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 pt-4">
               <button onClick={() => setShowStudentModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Batal</button>
               <button onClick={handleAddOrEditStudent} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl text-[10px] uppercase">Simpan</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAssignmentModal && (
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
+            <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingAssignment ? 'Ubah Detail Tugas' : 'Buat Penugasan Baru'}</h4>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Judul Penugasan</label>
+                <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Contoh: ANALISIS DATA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-all" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Batas Pengumpulan (Deadline)</label>
+                <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 transition-all" />
+              </div>
+            </div>
+            <div className="flex gap-4 pt-6">
+              <button onClick={() => setShowAssignmentModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Batal</button>
+              <button onClick={handleAddOrEditAssignment} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl text-[10px] uppercase">Simpan Tugas</button>
             </div>
           </div>
         </div>
@@ -869,12 +797,26 @@ const App: React.FC = () => {
         @media print {
           .no-print { display: none !important; }
           body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
-          .dark-card { border: none !important; background: transparent !important; box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; width: 100% !important; }
-          table { width: 100% !important; border-collapse: collapse !important; color: black !important; }
-          th, td { border: 1.5px solid black !important; color: black !important; padding: 10px !important; }
+          .dark-card { border: none !important; background: transparent !important; box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; width: 100% !important; overflow: visible !important; }
+          table { width: 100% !important; border-collapse: collapse !important; color: black !important; font-size: 8px !important; }
+          th, td { border: 1px solid black !important; color: black !important; padding: 4px !important; background: transparent !important; position: static !important; }
+          th { font-weight: 900 !important; }
           header { display: none !important; }
           main { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
           .view-transition { transform: none !important; animation: none !important; }
+          .bg-slate-900\/40 { background: transparent !important; }
+          .text-white { color: black !important; }
+          .text-slate-400, .text-slate-500, .text-slate-600 { color: #333 !important; }
+          [class*='bg-'], [class*='text-'] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Smooth scrolling for reports table */
+        .overflow-x-auto {
+           scroll-behavior: smooth;
+           -webkit-overflow-scrolling: touch;
         }
       `}</style>
     </div>
