@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { CLASSES as INITIAL_CLASSES } from './constants';
-import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData } from './types';
-import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate } from './utils';
+import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
+import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData } from './types.ts';
+import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate } from './utils.ts';
 
 const DARK_STATUS_COLORS: Record<AttendanceStatus, string> = {
   'H': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 ring-emerald-500/20',
@@ -22,6 +22,11 @@ const App: React.FC = () => {
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [loginError, setLoginError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Deteksi Environment Variables
+  const supabaseUrl = (window as any).process?.env?.VITE_SUPABASE_URL || "";
+  const supabaseAnonKey = (window as any).process?.env?.VITE_SUPABASE_ANON_KEY || "";
+  const isCloudConfigured = supabaseUrl !== "" && supabaseAnonKey !== "";
 
   const [classes, setClasses] = useState<ClassData[]>(() => {
     const saved = localStorage.getItem('classes_v1');
@@ -360,7 +365,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200">
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-w-sm px-4">
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 bg-indigo-950/90 border-indigo-500/30 text-indigo-100">
             <div className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-500">
@@ -679,45 +684,42 @@ const App: React.FC = () => {
               {adminTab === 'Cloud' && (
                 <div className="dark-card p-10 rounded-[3rem] space-y-8 shadow-2xl border-indigo-500/20">
                    <div className="flex items-center gap-6">
-                      <div className="w-16 h-16 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-400">
+                      <div className={`w-16 h-16 ${isCloudConfigured ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border-rose-500/20 text-rose-400'} rounded-2xl flex items-center justify-center`}>
                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                       </div>
                       <div>
                          <h3 className="text-xl font-black text-white uppercase tracking-tighter">Konfigurasi Cloud (Netlify)</h3>
-                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Status: Siap untuk Sinkronisasi</p>
+                         <p className={`text-[10px] font-bold ${isCloudConfigured ? 'text-emerald-500' : 'text-slate-500'} uppercase tracking-widest mt-1`}>Status: {isCloudConfigured ? 'Terhubung (API Mendeteksi Variable)' : 'Belum Terhubung'}</p>
                       </div>
                    </div>
                    <div className="space-y-6 bg-slate-950 p-6 rounded-2xl border border-white/5">
                       <div className="space-y-4">
-                         <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">A. Cari API Key di Supabase:</h4>
+                         <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Langkah-langkah:</h4>
                          <ol className="text-[10px] text-slate-400 space-y-2 list-decimal ml-4 font-bold">
                             <li>Buka <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-400 underline">Dashboard Supabase</a></li>
                             <li>Pilih Project Bapak > Klik Ikon <b>Settings (Gerigi ⚙️)</b></li>
                             <li>Klik Menu <b>API</b></li>
-                            <li>Lihat bagian <b>Project Config</b> dan <b>Project API keys</b></li>
+                            <li>Salin <b>Project URL</b> dan <b>anon public key</b></li>
                          </ol>
                       </div>
 
                       <div className="space-y-4">
-                         <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">B. Masukkan ke Netlify:</h4>
+                         <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Daftarkan di Netlify:</h4>
                          <div className="space-y-3">
                             <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-white/5">
-                               <span className="text-[10px] font-black text-slate-400">NETLIFY KEY</span>
-                               <span className="text-[10px] font-black text-indigo-400">SALIN DARI SUPABASE</span>
+                               <span className="text-[10px] font-black text-slate-400">ENVIRONMENT KEY</span>
+                               <span className="text-[10px] font-black text-white">STATUS</span>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
                                <code className="text-[10px] font-black text-white">VITE_SUPABASE_URL</code>
-                               <span className="text-[9px] font-bold text-slate-500 italic">Salin "Project URL"</span>
+                               <span className={`text-[9px] font-bold ${supabaseUrl ? 'text-emerald-400' : 'text-slate-500 italic'}`}>{supabaseUrl ? 'DITEMUKAN' : 'KOSONG'}</span>
                             </div>
                             <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
                                <code className="text-[10px] font-black text-white">VITE_SUPABASE_ANON_KEY</code>
-                               <span className="text-[9px] font-bold text-slate-500 italic">Salin "anon public" key</span>
+                               <span className={`text-[9px] font-bold ${supabaseAnonKey ? 'text-emerald-400' : 'text-slate-500 italic'}`}>{supabaseAnonKey ? 'DITEMUKAN' : 'KOSONG'}</span>
                             </div>
                          </div>
                       </div>
-                   </div>
-                   <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center">Variabel ini menjaga agar database Bapak tetap rahasia dan aman.</p>
                    </div>
                 </div>
               )}
