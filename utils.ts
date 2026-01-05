@@ -20,16 +20,19 @@ export const isFutureDate = (date: Date): boolean => {
   return check > today;
 };
 
-export const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
+export const getDatesInRange = (startDate: Date, endDate: Date, schedule?: number[]): Date[] => {
   const dates = [];
   let currentDate = new Date(startDate);
   currentDate.setHours(0,0,0,0);
   const lastDate = new Date(endDate);
   lastDate.setHours(0,0,0,0);
 
+  // Jika jadwal tidak ada, gunakan default Senin-Jumat (1,2,3,4,5)
+  const activeDays = schedule && schedule.length > 0 ? schedule : [1, 2, 3, 4, 5];
+
   while (currentDate <= lastDate) {
     const dayOfWeek = currentDate.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+    if (activeDays.includes(dayOfWeek)) {
       dates.push(new Date(currentDate));
     }
     currentDate.setDate(currentDate.getDate() + 1);
@@ -37,27 +40,38 @@ export const getDatesInRange = (startDate: Date, endDate: Date): Date[] => {
   return dates;
 };
 
-export const getMonthDates = (monthIndex: number): Date[] => {
+export const getMonthDates = (monthIndex: number, schedule?: number[]): Date[] => {
   const startDate = new Date(2026, monthIndex, 1);
   const endDate = new Date(2026, monthIndex + 1, 0);
-  return getDatesInRange(startDate, endDate);
+  return getDatesInRange(startDate, endDate, schedule);
 };
 
-export const getWeekDates = (baseDate: Date): Date[] => {
+export const getWeekDates = (baseDate: Date, schedule?: number[]): Date[] => {
   const day = baseDate.getDay();
   const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); 
   const monday = new Date(baseDate.getFullYear(), baseDate.getMonth(), diff);
-  const dates = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    dates.push(d);
-  }
-  return dates;
+  const friday = new Date(monday);
+  friday.setDate(monday.getDate() + 4);
+  
+  return getDatesInRange(monday, friday, schedule);
 };
 
-export const getSemesterDates = (): Date[] => {
+export const getSemesterDates = (schedule?: number[]): Date[] => {
   const start = new Date(2026, 0, 1);
   const end = new Date(2026, 5, 30);
-  return getDatesInRange(start, end);
+  return getDatesInRange(start, end, schedule);
+};
+
+export const getNextTeachingDate = (date: Date, schedule: number[], direction: 'next' | 'prev'): Date => {
+  const activeDays = schedule && schedule.length > 0 ? schedule : [1, 2, 3, 4, 5];
+  let checkDate = new Date(date);
+  
+  // Maksimal cari dalam 7 hari untuk menghindari infinite loop
+  for (let i = 0; i < 7; i++) {
+    checkDate.setDate(checkDate.getDate() + (direction === 'next' ? 1 : -1));
+    if (activeDays.includes(checkDate.getDay())) {
+      return checkDate;
+    }
+  }
+  return date;
 };

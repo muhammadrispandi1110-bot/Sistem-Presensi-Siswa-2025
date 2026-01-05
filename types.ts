@@ -26,6 +26,7 @@ export interface ClassData {
   name: string;
   students: Student[];
   assignments?: Assignment[];
+  schedule?: number[]; // 1: Senin, 2: Selasa, 3: Rabu, 4: Kamis, 5: Jumat
 }
 
 export interface AttendanceRecord {
@@ -42,3 +43,5 @@ export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   'I': 'Izin',
   'A': 'Alpa'
 };
+
+export const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];

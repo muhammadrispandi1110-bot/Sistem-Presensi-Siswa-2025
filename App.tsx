@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
-import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData } from './types.ts';
-import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate } from './utils.ts';
+import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES } from './types.ts';
+import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
 const DARK_STATUS_COLORS: Record<AttendanceStatus, string> = {
   'H': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 ring-emerald-500/20',
@@ -23,7 +23,6 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Deteksi Environment Variables
   const supabaseUrl = (window as any).process?.env?.VITE_SUPABASE_URL || "";
   const supabaseAnonKey = (window as any).process?.env?.VITE_SUPABASE_ANON_KEY || "";
   const isCloudConfigured = supabaseUrl !== "" && supabaseAnonKey !== "";
@@ -59,7 +58,8 @@ const App: React.FC = () => {
     studentNis: '',
     assignTitle: '',
     assignDesc: '',
-    assignDue: formatDate(new Date())
+    assignDue: formatDate(new Date()),
+    schedule: [] as number[]
   });
 
   const [attendance, setAttendance] = useState<AttendanceRecord>(() => {
@@ -84,7 +84,16 @@ const App: React.FC = () => {
     }
   }, [attendance, classes, isAuthenticated]);
 
-  const activeClass = classes.find(c => c.id === activeClassId);
+  const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
+
+  // Pastikan currentDate selalu berada di hari mengajar saat ganti kelas
+  useEffect(() => {
+    if (activeClass?.schedule && activeClass.schedule.length > 0) {
+      if (!activeClass.schedule.includes(currentDate.getDay())) {
+        setCurrentDate(getNextTeachingDate(currentDate, activeClass.schedule, 'next'));
+      }
+    }
+  }, [activeClassId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,10 +129,10 @@ const App: React.FC = () => {
   };
 
   const reportDates = useMemo(() => {
-    if (reportTab === 'Weekly') return getWeekDates(currentDate);
-    if (reportTab === 'Monthly') return getMonthDates(activeMonth);
-    return getSemesterDates();
-  }, [reportTab, currentDate, activeMonth]);
+    if (reportTab === 'Weekly') return getWeekDates(currentDate, activeClass?.schedule);
+    if (reportTab === 'Monthly') return getMonthDates(activeMonth, activeClass?.schedule);
+    return getSemesterDates(activeClass?.schedule);
+  }, [reportTab, currentDate, activeMonth, activeClass]);
 
   const classSummary = useMemo(() => {
     if (!activeClass) return null;
@@ -268,10 +277,10 @@ const App: React.FC = () => {
   const handleAddOrEditClass = () => {
     if (!adminFormData.className) return;
     if (editingClass) {
-      setClasses(classes.map(c => c.id === editingClass.id ? { ...c, name: adminFormData.className } : c));
+      setClasses(classes.map(c => c.id === editingClass.id ? { ...c, name: adminFormData.className, schedule: adminFormData.schedule } : c));
     } else {
       const newId = `cls-${Date.now()}`;
-      setClasses([...classes, { id: newId, name: adminFormData.className, students: [], assignments: [] }]);
+      setClasses([...classes, { id: newId, name: adminFormData.className, students: [], assignments: [], schedule: adminFormData.schedule }]);
       if (!activeClassId) setActiveClassId(newId);
     }
     setShowClassModal(false);
@@ -341,6 +350,15 @@ const App: React.FC = () => {
 
   const getSubmittedCount = (assignment: Assignment) => {
     return Object.values(assignment.submissions).filter(s => s.isSubmitted).length;
+  };
+
+  const toggleScheduleDay = (day: number) => {
+    setAdminFormData(prev => ({
+      ...prev,
+      schedule: prev.schedule.includes(day) 
+        ? prev.schedule.filter(d => d !== day) 
+        : [...prev.schedule, day].sort()
+    }));
   };
 
   if (!isAuthenticated) {
@@ -419,10 +437,15 @@ const App: React.FC = () => {
           {view === 'Daily' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between no-print">
-                <h2 className="text-xl font-black text-white uppercase tracking-tighter">Hadir Hari Ini</h2>
+                <div className="flex flex-col">
+                  <h2 className="text-xl font-black text-white uppercase tracking-tighter">Hadir Hari Ini</h2>
+                  <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1">
+                    {DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate()-1); setCurrentDate(d); }} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-                  <button onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate()+1); setCurrentDate(d); }} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
                 </div>
               </div>
               <div className="space-y-3">
@@ -478,32 +501,6 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {classSummary && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
-                   <div className="dark-card p-8 rounded-[2.5rem] bg-indigo-600/5 border-indigo-500/20">
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.3em] mb-4">Rata-rata Kehadiran</p>
-                      <div className="flex items-end gap-2">
-                         <span className="text-5xl font-black text-white leading-none">{classSummary.avg}%</span>
-                         <span className="text-xs font-bold text-slate-500 pb-1">Efektivitas</span>
-                      </div>
-                   </div>
-                   <div className="dark-card p-8 rounded-[2.5rem] bg-emerald-600/5 border-emerald-500/20">
-                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-[0.3em] mb-4">Siswa Terajin</p>
-                      <div className="space-y-1">
-                         <span className="text-lg font-black text-white uppercase tracking-tight block truncate">{classSummary.best}</span>
-                         <span className="text-[10px] font-bold text-slate-500 uppercase">Performa Sempurna (100%)</span>
-                      </div>
-                   </div>
-                   <div className="dark-card p-8 rounded-[2.5rem] bg-rose-600/5 border-rose-500/20">
-                      <p className="text-[9px] font-black text-rose-400 uppercase tracking-[0.3em] mb-4">Tingkat Ketidakhadiran</p>
-                      <div className="flex items-end gap-2">
-                         <span className="text-5xl font-black text-white leading-none">{classSummary.absentRate}%</span>
-                         <span className="text-xs font-bold text-slate-500 pb-1">Total Absensi</span>
-                      </div>
-                   </div>
-                </div>
-              )}
-
               <div className="dark-card rounded-[3.5rem] overflow-hidden shadow-2xl print:border-2 print:border-black print:rounded-none">
                  <div className="p-12 border-b border-white/5 text-center space-y-4 print:p-6 print:border-black">
                     <h3 className="text-3xl font-black text-white uppercase tracking-tighter print:text-black print:text-2xl">Laporan Rekapitulasi Presensi Siswa</h3>
@@ -512,6 +509,11 @@ const App: React.FC = () => {
                        <span>Kelas: <span className="text-white print:text-black">{activeClass?.name || '-'}</span></span>
                        <span>Periode: <span className="text-indigo-400 print:text-black">{reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester 1 (Jan-Jun)'}</span></span>
                     </div>
+                    {activeClass?.schedule && (
+                       <p className="text-[9px] font-black text-indigo-500/50 uppercase tracking-widest no-print">
+                         Hari Mengajar: {activeClass.schedule.map(d => DAY_NAMES[d]).join(', ')}
+                       </p>
+                    )}
                  </div>
                  <div className="overflow-x-auto">
                     <table className="w-full text-left text-[11px] print:text-black">
@@ -611,15 +613,31 @@ const App: React.FC = () => {
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex items-center justify-between">
                       <h3 className="font-black text-white uppercase tracking-tighter">Manajemen Kelas</h3>
-                      <button onClick={() => { setEditingClass(null); setAdminFormData({ ...adminFormData, className: '' }); setShowClassModal(true); }} className="px-5 py-3 active-gradient text-white rounded-xl font-black text-[9px] uppercase">Tambah Kelas</button>
+                      <button onClick={() => { 
+                        setEditingClass(null); 
+                        setAdminFormData({ ...adminFormData, className: '', schedule: [1,2,3,4,5] }); 
+                        setShowClassModal(true); 
+                      }} className="px-5 py-3 active-gradient text-white rounded-xl font-black text-[9px] uppercase">Tambah Kelas</button>
                    </div>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(c => (
-                        <div key={c.id} className="p-5 bg-slate-950/50 border border-slate-800 rounded-2xl flex items-center justify-between">
-                           <div>
-                              <p className="font-black text-white uppercase text-xs tracking-tight">{c.name}</p>
+                        <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2rem] flex items-center justify-between group">
+                           <div className="space-y-2">
+                              <p className="font-black text-white uppercase text-xs tracking-tight group-hover:text-indigo-400 transition-all">{c.name}</p>
+                              <div className="flex flex-wrap gap-1">
+                                {(c.schedule || [1,2,3,4,5]).map(d => (
+                                  <span key={d} className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/20 rounded-md text-[8px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0, 3)}</span>
+                                ))}
+                              </div>
                               <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">{c.students.length} Siswa</p>
                            </div>
+                           <button onClick={() => {
+                             setEditingClass(c);
+                             setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || [1,2,3,4,5]});
+                             setShowClassModal(true);
+                           }} className="p-3 text-slate-500 hover:text-white transition-all">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                           </button>
                         </div>
                       ))}
                    </div>
@@ -800,9 +818,22 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
             <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingClass ? 'Ubah Kelas' : 'Tambah Kelas'}</h4>
-            <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Kelas</label>
-                <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="XII.1" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase" />
+            <div className="space-y-6">
+                <div className="space-y-2">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Nama Kelas</label>
+                    <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="XII.1" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase" />
+                </div>
+                <div className="space-y-3">
+                    <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Jadwal Mengajar (Hari)</label>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[1, 2, 3, 4, 5].map(d => (
+                        <button key={d} onClick={() => toggleScheduleDay(d)} className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>
+                          {DAY_NAMES[d].slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[8px] font-bold text-slate-600 italic">Sistem hanya akan menampilkan tanggal pada hari yang Bapak pilih di atas.</p>
+                </div>
             </div>
             <div className="flex gap-4">
               <button onClick={() => setShowClassModal(false)} className="flex-1 py-5 bg-slate-900 border border-slate-800 text-slate-400 font-black rounded-2xl text-[10px] uppercase">Batal</button>
