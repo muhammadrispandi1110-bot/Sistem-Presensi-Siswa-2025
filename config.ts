@@ -15,11 +15,12 @@ export const APP_CONFIG = {
   },
 
   // Pengaturan Database (Supabase)
+  // Membaca dari Environment Variables Netlify (VITE_ prefix wajib untuk Vite)
   database: {
-    url: (window as any).process?.env?.VITE_SUPABASE_URL || "",
-    anonKey: (window as any).process?.env?.VITE_SUPABASE_ANON_KEY || "",
+    url: (import.meta as any).env?.VITE_SUPABASE_URL || (process.env as any)?.VITE_SUPABASE_URL || "https://nwkqmurafkzpuibuzgbw.supabase.co",
+    anonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (process.env as any)?.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53a3FtdXJhZmt6cHVpYnV6Z2J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc1Nzg2NjIsImV4cCI6MjA4MzE1NDY2Mn0.ozF1KmR3PZTBCcUlWrhwAGy068oYLyt0yVRFmaGgn2U",
     storageId: 'main_store', // ID baris di tabel app_storage
-    syncDebounceMs: 1000,   // Jeda waktu sebelum push ke cloud (ms) - Dipercepat menjadi 1 detik
+    syncDebounceMs: 1000,   // Jeda waktu sebelum push ke cloud (ms)
   },
 
   // Pengaturan Default Aplikasi
