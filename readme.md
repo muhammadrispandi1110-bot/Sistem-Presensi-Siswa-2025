@@ -6,7 +6,6 @@ Selamat datang di **Sistem Presensi Digital**. Aplikasi ini dirancang untuk memb
 ---
 
 ## 1. Akses Sistem (Login)
-Untuk menjaga keamanan data, aplikasi dilindungi oleh sistem login:
 *   **Username**: `admin`
 *   **Password**: `admin`
 
@@ -17,8 +16,28 @@ Aplikasi ini sudah dikonfigurasi untuk berjalan di **Netlify**. File `_redirects
 
 ---
 
-## 3. Konfigurasi Supabase (SQL Editor)
-Jika Bapak ingin menggunakan database cloud dari Supabase, silakan buat project baru di [supabase.com](https://supabase.com) dan jalankan script berikut di menu **SQL Editor**:
+## 3. Cara Mendapatkan API Key Supabase
+Bapak bisa menemukan kunci koneksi di:
+1.  Buka **[Supabase Dashboard](https://supabase.com/dashboard)**.
+2.  Pilih Project Bapak.
+3.  Klik ikon **Settings (Gerigi ⚙️)** di pojok kiri bawah.
+4.  Pilih menu **API**.
+5.  Salin nilai berikut:
+    *   **Project URL** -> Untuk `VITE_SUPABASE_URL`
+    *   **anon public key** -> Untuk `VITE_SUPABASE_ANON_KEY`
+
+---
+
+## 4. Pengaturan Environment Variables (Netlify)
+Masukkan kunci yang sudah disalin tadi ke Netlify:
+1.  Buka **Netlify Dashboard** > Pilih situs Bapak.
+2.  Pergi ke **Site configuration** > **Build & deploy** > **Environment variables**.
+3.  Klik **Add a variable** dan masukkan dua kunci tersebut dengan nama yang tepat (Gunakan prefix `VITE_`).
+
+---
+
+## 5. Konfigurasi Database (SQL Editor)
+Jalankan script berikut di menu **SQL Editor** Supabase:
 
 ```sql
 -- 1. Tabel Kelas
@@ -32,7 +51,6 @@ CREATE TABLE classes (
 CREATE TABLE students (
   id TEXT PRIMARY KEY,
   nis TEXT,
-  nisn TEXT,
   name TEXT NOT NULL,
   class_id TEXT REFERENCES classes(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -44,38 +62,9 @@ CREATE TABLE attendance (
   student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   status TEXT CHECK (status IN ('H', 'S', 'I', 'A')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(student_id, date)
 );
-
--- 4. Tabel Tugas
-CREATE TABLE assignments (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  due_date DATE,
-  class_id TEXT REFERENCES classes(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 5. Tabel Pengumpulan/Nilai
-CREATE TABLE submissions (
-  id BIGSERIAL PRIMARY KEY,
-  assignment_id TEXT REFERENCES assignments(id) ON DELETE CASCADE,
-  student_id TEXT REFERENCES students(id) ON DELETE CASCADE,
-  is_submitted BOOLEAN DEFAULT FALSE,
-  score TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(assignment_id, student_id)
-);
 ```
-
----
-
-## 4. Fitur Unggulan
-*   **Impor Massal CSV**: Tambah daftar siswa sekaligus via file Excel/CSV.
-*   **Ekspor Excel**: Unduh rekap absensi dan nilai tugas langsung ke format `.csv` (Excel).
-*   **Laporan Siap Cetak**: Format laporan resmi dengan kolom tanda tangan kepala sekolah dan wali kelas.
 
 ---
 *Dibuat dengan dedikasi untuk kemajuan digitalisasi pendidikan di SMAN 11 Makassar.*

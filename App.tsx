@@ -683,23 +683,41 @@ const App: React.FC = () => {
                          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                       </div>
                       <div>
-                         <h3 className="text-xl font-black text-white uppercase tracking-tighter">Cloud Integration (Supabase)</h3>
+                         <h3 className="text-xl font-black text-white uppercase tracking-tighter">Konfigurasi Cloud (Netlify)</h3>
                          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1">Status: Siap untuk Sinkronisasi</p>
                       </div>
                    </div>
-                   <div className="space-y-4 bg-slate-950 p-6 rounded-2xl border border-white/5">
-                      <p className="text-[11px] text-slate-300 leading-relaxed font-bold">
-                         Aplikasi ini dirancang untuk dapat terhubung ke **Supabase**. Script SQL yang diperlukan sudah tersedia di file `readme.md`. 
-                         Silakan hubungi tim IT untuk memasukkan **Supabase URL** dan **Anon Key** ke dalam variabel lingkungan (Environment Variables) di Netlify.
-                      </p>
-                      <div className="pt-4 flex flex-wrap gap-3">
-                         <div className="px-4 py-2 bg-slate-900 rounded-lg text-[9px] font-black text-emerald-400 uppercase border border-emerald-500/30">Auto-Scaling OK</div>
-                         <div className="px-4 py-2 bg-slate-900 rounded-lg text-[9px] font-black text-indigo-400 uppercase border border-indigo-500/30">Secure Auth Ready</div>
-                         <div className="px-4 py-2 bg-slate-900 rounded-lg text-[9px] font-black text-amber-400 uppercase border border-amber-500/30">PostgreSQL Schema Ready</div>
+                   <div className="space-y-6 bg-slate-950 p-6 rounded-2xl border border-white/5">
+                      <div className="space-y-4">
+                         <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">A. Cari API Key di Supabase:</h4>
+                         <ol className="text-[10px] text-slate-400 space-y-2 list-decimal ml-4 font-bold">
+                            <li>Buka <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-400 underline">Dashboard Supabase</a></li>
+                            <li>Pilih Project Bapak > Klik Ikon <b>Settings (Gerigi ⚙️)</b></li>
+                            <li>Klik Menu <b>API</b></li>
+                            <li>Lihat bagian <b>Project Config</b> dan <b>Project API keys</b></li>
+                         </ol>
+                      </div>
+
+                      <div className="space-y-4">
+                         <h4 className="text-[11px] font-black text-emerald-400 uppercase tracking-widest">B. Masukkan ke Netlify:</h4>
+                         <div className="space-y-3">
+                            <div className="flex items-center justify-between p-4 bg-slate-900 rounded-xl border border-white/5">
+                               <span className="text-[10px] font-black text-slate-400">NETLIFY KEY</span>
+                               <span className="text-[10px] font-black text-indigo-400">SALIN DARI SUPABASE</span>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                               <code className="text-[10px] font-black text-white">VITE_SUPABASE_URL</code>
+                               <span className="text-[9px] font-bold text-slate-500 italic">Salin "Project URL"</span>
+                            </div>
+                            <div className="flex items-center justify-between p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                               <code className="text-[10px] font-black text-white">VITE_SUPABASE_ANON_KEY</code>
+                               <span className="text-[9px] font-bold text-slate-500 italic">Salin "anon public" key</span>
+                            </div>
+                         </div>
                       </div>
                    </div>
                    <div className="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl">
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center">Deployment Aktif di Netlify Serverless Edge</p>
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest text-center">Variabel ini menjaga agar database Bapak tetap rahasia dan aman.</p>
                    </div>
                 </div>
               )}
@@ -754,7 +772,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* OTHER MODALS (Class, Student, Assignment) REMAIN SAME */}
       {showAssignmentModal && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
