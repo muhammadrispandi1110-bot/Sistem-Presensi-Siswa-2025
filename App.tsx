@@ -32,8 +32,8 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
   
-  // Ambil config dari file pusat
   const { database, auth, school, defaults } = APP_CONFIG;
   const isCloudConfigured = database.url !== "" && database.anonKey !== "";
   
@@ -87,7 +87,7 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
-  const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord) => {
+  const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord, manual = false) => {
     if (!supabase || !isAuthenticated) return;
     setIsSyncing(true);
     try {
@@ -100,8 +100,11 @@ const App: React.FC = () => {
           updated_at: new Date()
         });
       if (error) throw error;
-    } catch (err) {
+      setLastSync(new Date().toLocaleTimeString());
+      if (manual) showToast('Sinkronisasi Berhasil!', 'success');
+    } catch (err: any) {
       console.error('Cloud Sync Error:', err);
+      if (manual) showToast(`Gagal: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -111,19 +114,26 @@ const App: React.FC = () => {
     if (!supabase) return;
     setIsSyncing(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('app_storage')
         .select('*')
         .eq('id', database.storageId)
         .single();
       
+      if (error && error.code !== 'PGRST116') throw error;
+
       if (data) {
         setClasses(data.classes);
         setAttendance(data.attendance);
-        showToast('Data Cloud Sinkron!', 'info');
+        setLastSync(new Date(data.updated_at).toLocaleTimeString());
+        showToast('Data Cloud Dimuat!', 'info');
+      } else {
+        // Jika cloud kosong, kirim data lokal ke cloud (inisialisasi)
+        pushToCloud(classes, attendance);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.log('Fetching cloud failed:', err);
+      showToast('Gagal memuat Cloud, menggunakan data lokal.', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -169,8 +179,7 @@ const App: React.FC = () => {
   };
 
   const handleSaveAttendance = () => {
-    pushToCloud(classes, attendance);
-    showToast('Data dikirim ke Cloud!', 'success');
+    pushToCloud(classes, attendance, true);
   };
 
   const calculateStats = (studentId: string, dates: Date[]) => {
@@ -332,7 +341,7 @@ const App: React.FC = () => {
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 bg-indigo-950/90 border-indigo-500/30 text-indigo-100">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-500">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.type === 'error' ? 'bg-rose-500' : 'bg-indigo-500'}`}>
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
             </div>
             <p className="text-[10px] font-black uppercase tracking-widest">{n.message}</p>
@@ -348,7 +357,7 @@ const App: React.FC = () => {
               <h1 className="font-black text-white text-lg uppercase leading-none">{activeClass?.name || 'Sistem Sekolah'}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{school.name}</p>
-                <div className={`w-2 h-2 rounded-full ${isCloudConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isCloudConfigured ? "Connected" : "Local Mode"}></div>
+                <div className={`w-2 h-2 rounded-full ${isCloudConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isCloudConfigured ? "Cloud Active" : "Local Mode"}></div>
               </div>
             </div>
           </div>
@@ -641,23 +650,48 @@ const App: React.FC = () => {
               )}
 
               {adminTab === 'Cloud' && (
-                <div className="dark-card p-8 rounded-[2.5rem] space-y-8 shadow-2xl">
-                   <div className="flex items-center gap-6">
-                      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center ${isCloudConfigured ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500' : 'bg-slate-900 border border-slate-800 text-slate-600'}`}>
-                         <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="dark-card p-8 rounded-[2.5rem] space-y-8 shadow-2xl">
+                    <div className="flex items-center gap-6">
+                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isCloudConfigured ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500' : 'bg-slate-900 border border-slate-800 text-slate-600'}`}>
+                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
                       </div>
                       <div>
-                         <h3 className="text-xl font-black text-white uppercase">Status Supabase Cloud</h3>
-                         <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">{isCloudConfigured ? 'Sinkronisasi Aktif' : 'Mode Penyimpanan Lokal'}</p>
+                        <h3 className="text-lg font-black text-white uppercase">Status Supabase</h3>
+                        <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-widest">{isCloudConfigured ? 'TERKONEKSI' : 'MODE LOKAL'}</p>
                       </div>
-                   </div>
-                   <button 
-                     onClick={() => { pushToCloud(classes, attendance); showToast('Memaksa sinkronisasi...', 'info'); }}
-                     disabled={!isCloudConfigured || isSyncing}
-                     className={`w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isCloudConfigured ? 'active-gradient text-white shadow-xl' : 'bg-slate-900 text-slate-700'}`}
-                   >
-                      {isSyncing ? 'SEDANG SINKRONISASI...' : 'SINKRONISASI SEKARANG'}
-                   </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <span>Sinkron Terakhir:</span>
+                        <span className="text-indigo-400">{lastSync || 'Belum Pernah'}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
+                        <span>ID Penyimpanan:</span>
+                        <span className="text-white">{database.storageId}</span>
+                      </div>
+                    </div>
+
+                    <button 
+                      onClick={() => pushToCloud(classes, attendance, true)}
+                      disabled={!isCloudConfigured || isSyncing}
+                      className={`w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isCloudConfigured ? 'active-gradient text-white shadow-xl' : 'bg-slate-900 text-slate-700'}`}
+                    >
+                      {isSyncing ? 'PROSES...' : 'Kirim Data Lokal ke Cloud'}
+                    </button>
+                  </div>
+
+                  <div className="dark-card p-8 rounded-[2.5rem] space-y-6 bg-amber-500/5 border-amber-500/20">
+                    <h3 className="text-lg font-black text-amber-500 uppercase">Petunjuk Sinkronisasi</h3>
+                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
+                      Data di HP/Laptop Bapak bersifat mandiri. Gunakan tombol <span className="text-white font-bold">Kirim Data Lokal ke Cloud</span> jika Bapak baru saja mengisi data dan ingin memastikannya tersimpan di Supabase agar bisa dibuka di perangkat lain.
+                    </p>
+                    <div className="p-4 bg-slate-950 rounded-2xl border border-white/5">
+                       <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Penyimpanan Terdeteksi:</p>
+                       <p className="text-[10px] font-bold text-white">Kelas: {classes.length} | Siswa: {classes.reduce((acc, c) => acc + c.students.length, 0)}</p>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
