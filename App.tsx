@@ -36,18 +36,23 @@ const App: React.FC = () => {
   const [lastSync, setLastSync] = useState<string | null>(null);
   
   const { database, auth, school, defaults } = APP_CONFIG;
-  const isCloudConfigured = database.url !== "" && database.anonKey !== "";
   
   const supabase = useMemo(() => {
-    if (isCloudConfigured) return createClient(database.url, database.anonKey);
+    try {
+      if (database.url && database.anonKey) {
+        return createClient(database.url, database.anonKey);
+      }
+    } catch (e) {
+      console.error("Supabase Init Error:", e);
+    }
     return null;
   }, [database.url, database.anonKey]);
 
-  // Data awal kosong, akan diisi dari Cloud
-  const [classes, setClasses] = useState<ClassData[]>([]);
+  // Gunakan INITIAL_CLASSES sebagai default agar UI tidak kosong saat loading/error
+  const [classes, setClasses] = useState<ClassData[]>(INITIAL_CLASSES);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
 
-  const [activeClassId, setActiveClassId] = useState('');
+  const [activeClassId, setActiveClassId] = useState(INITIAL_CLASSES[0]?.id || '');
   const [view, setView] = useState<ViewType>('Daily');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database'>('Kelas');
@@ -105,9 +110,7 @@ const App: React.FC = () => {
 
   const fetchFromCloud = async () => {
     if (!supabase) {
-      // Jika cloud tidak diset, gunakan INITIAL_CLASSES sebagai fallback
-      setClasses(INITIAL_CLASSES);
-      setActiveClassId(INITIAL_CLASSES[0].id);
+      showToast('Berjalan tanpa Cloud (Local Only)', 'info');
       return;
     }
     
@@ -119,47 +122,48 @@ const App: React.FC = () => {
         .eq('id', database.storageId)
         .single();
       
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // Data belum ada di tabel, inisialisasi awal
+          await pushToCloud(INITIAL_CLASSES, {});
+        } else {
+          throw error;
+        }
+      }
 
       if (data) {
-        setClasses(data.classes);
-        setAttendance(data.attendance);
-        if (data.classes.length > 0) setActiveClassId(data.classes[0].id);
+        setClasses(data.classes || INITIAL_CLASSES);
+        setAttendance(data.attendance || {});
+        if (data.classes && data.classes.length > 0) {
+          setActiveClassId(data.classes[0].id);
+        }
         setLastSync(new Date(data.updated_at).toLocaleTimeString());
-        showToast('Data Cloud Berhasil Dimuat!', 'info');
-      } else {
-        // Jika data cloud masih kosong sama sekali (pertama kali pakai)
-        setClasses(INITIAL_CLASSES);
-        setActiveClassId(INITIAL_CLASSES[0].id);
-        // Langsung inisialisasi cloud dengan data default
-        await pushToCloud(INITIAL_CLASSES, {});
+        showToast('Data Cloud Sinkron!', 'success');
       }
     } catch (err: any) {
-      console.error('Initial Load Failed:', err);
-      showToast('Gagal terhubung ke Cloud!', 'error');
+      console.error('Fetch Failed:', err);
+      showToast('Gagal memuat Cloud, menggunakan data default.', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Efek Auto-Save: Berjalan setiap kali ada perubahan pada classes atau attendance
   useEffect(() => {
     if (isAuthenticated && classes.length > 0) {
       const debounceTimer = setTimeout(() => {
         pushToCloud(classes, attendance);
-      }, 1000); // Sinkronisasi otomatis setiap 1 detik setelah perubahan berhenti
+      }, 1000);
       return () => clearTimeout(debounceTimer);
     }
   }, [attendance, classes, isAuthenticated]);
 
-  // Load data hanya saat login berhasil
   useEffect(() => {
     if (isAuthenticated) {
       fetchFromCloud();
     }
   }, [isAuthenticated]);
 
-  const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
+  const activeClass = useMemo(() => classes.find(c => c.id === activeClassId) || classes[0], [classes, activeClassId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,9 +177,9 @@ const App: React.FC = () => {
   const handleLogout = () => {
     if (window.confirm('Keluar sistem?')) {
       setIsAuthenticated(false);
-      setClasses([]);
+      setClasses(INITIAL_CLASSES);
       setAttendance({});
-      setActiveClassId('');
+      setActiveClassId(INITIAL_CLASSES[0]?.id || '');
     }
   };
 
@@ -322,7 +326,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Layar Login
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen login-bg flex items-center justify-center p-6">
@@ -342,7 +345,6 @@ const App: React.FC = () => {
     );
   }
 
-  // Layar Loading Cloud
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6">
@@ -354,7 +356,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200" onClick={() => setActiveMenuId(null)}>
-      {/* Notifikasi */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-w-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 bg-slate-900/90 border-white/5 text-white">
@@ -425,7 +426,7 @@ const App: React.FC = () => {
                 </div>
               </div>
               <div className="space-y-3">
-                {activeClass?.students.map((s, idx) => {
+                {(activeClass?.students || []).map((s, idx) => {
                   const status = attendance[s.id]?.[formatDate(currentDate)] || 'H';
                   return (
                     <div key={s.id} className="dark-card p-5 rounded-[2rem] flex items-center justify-between group">
@@ -521,7 +522,7 @@ const App: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5 print:divide-black">
-                        {activeClass?.students.map((s, idx) => {
+                        {(activeClass?.students || []).map((s, idx) => {
                           const stats = calculateStats(s.id, reportDates);
                           const total = stats.H + stats.S + stats.I + stats.A;
                           const percent = total > 0 ? Math.round((stats.H / total) * 100) : 0;
@@ -547,9 +548,6 @@ const App: React.FC = () => {
                             </tr>
                           );
                         })}
-                        {activeClass?.students.length === 0 && (
-                          <tr><td colSpan={reportDates.length + 7} className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest italic">Belum ada data siswa di kelas ini</td></tr>
-                        )}
                       </tbody>
                     </table>
                  </div>
@@ -626,11 +624,6 @@ const App: React.FC = () => {
                         <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2.5rem] flex items-center justify-between group transition-all hover:border-indigo-500/50">
                            <div>
                               <p className="font-black text-white uppercase text-sm group-hover:text-indigo-400 transition-colors">{c.name}</p>
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {(c.schedule || defaults.teachingDays).map(d => (
-                                  <span key={d} className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[7px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0,3)}</span>
-                                ))}
-                              </div>
                            </div>
                            <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl hover:text-white transition-colors">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5" /></svg>
@@ -653,7 +646,7 @@ const App: React.FC = () => {
                           <tr><th className="p-4 font-black text-slate-500 uppercase">Nama</th><th className="p-4 font-black text-slate-500 uppercase">NIS</th><th className="p-4 font-black text-slate-500 uppercase text-center">Aksi</th></tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                          {activeClass?.students.map(s => (
+                          {(activeClass?.students || []).map(s => (
                             <tr key={s.id} className="hover:bg-white/5">
                               <td className="p-4 font-black text-white uppercase">{s.name}</td>
                               <td className="p-4 text-slate-400">{s.nis}</td>
@@ -692,13 +685,6 @@ const App: React.FC = () => {
                         </div>
                      </div>
                   </div>
-                  <div className="dark-card p-10 rounded-[3rem] space-y-6 bg-rose-500/5 border-rose-500/20">
-                     <h4 className="text-lg font-black text-rose-500 uppercase">Perhatian Keamanan</h4>
-                     <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
-                        Aplikasi ini tidak menyimpan data apapun secara permanen di browser (Local Storage) untuk menjaga keamanan data di perangkat bersama.<br/><br/>
-                        Pastikan Bapak terhubung ke internet saat melakukan penginputan agar data langsung masuk ke server Supabase.
-                     </p>
-                  </div>
                 </div>
               )}
             </div>
@@ -706,7 +692,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* MODALS SECTION */}
+      {/* MODALS */}
       {showGradingModal && activeAssignment && (
         <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-4xl p-8 rounded-[3.5rem] space-y-8 max-h-[90vh] flex flex-col">
@@ -715,7 +701,7 @@ const App: React.FC = () => {
                <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6" /></svg></button>
             </div>
             <div className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-hide">
-               {activeClass?.students.map((s, idx) => {
+               {(activeClass?.students || []).map((s, idx) => {
                  const sub = activeAssignment.submissions[s.id] || { isSubmitted: false, score: '' };
                  return (
                    <div key={s.id} className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${sub.isSubmitted ? 'bg-emerald-600/5 border-emerald-500/20' : 'bg-slate-900/30 border-slate-800'}`}>
@@ -735,66 +721,6 @@ const App: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Modal Kelas & Siswa tetap sama but simplified trigger */}
-      {showClassModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">
-            <h4 className="text-2xl font-black text-white uppercase text-center">{editingClass ? 'Ubah Kelas' : 'Tambah Kelas'}</h4>
-            <div className="space-y-6">
-                <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="Nama Kelas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
-                <div className="grid grid-cols-5 gap-2">
-                  {[1, 2, 3, 4, 5].map(d => (
-                    <button key={d} onClick={() => { setAdminFormData(prev => ({ ...prev, schedule: prev.schedule.includes(d) ? prev.schedule.filter(x => x !== d) : [...prev.schedule, d].sort() })); }} className={`py-4 rounded-2xl text-[10px] font-black uppercase border transition-all ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>{DAY_NAMES[d].slice(0,3)}</button>
-                  ))}
-                </div>
-            </div>
-            <div className="flex gap-4">
-              <button onClick={() => setShowClassModal(false)} className="flex-1 py-5 bg-slate-900 text-slate-400 font-black rounded-2xl uppercase">Batal</button>
-              <button onClick={handleAddOrEditClass} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl uppercase">Simpan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showStudentModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">
-            <h4 className="text-2xl font-black text-white uppercase text-center">{editingStudent ? 'Ubah Siswa' : 'Tambah Siswa'}</h4>
-            <div className="space-y-6">
-                <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} type="text" placeholder="Nama Lengkap" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none uppercase" />
-                <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} type="text" placeholder="NIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
-            </div>
-            <div className="flex gap-4">
-              <button onClick={() => setShowStudentModal(false)} className="flex-1 py-5 bg-slate-900 text-slate-400 font-black rounded-2xl uppercase">Batal</button>
-              <button onClick={handleAddOrEditStudent} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl uppercase">Simpan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showAssignmentModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">
-            <h4 className="text-2xl font-black text-white uppercase text-center">{editingAssignment ? 'Ubah Tugas' : 'Buat Tugas'}</h4>
-            <div className="space-y-6">
-                <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Judul Tugas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none uppercase" />
-                <textarea value={adminFormData.assignDesc} onChange={e => setAdminFormData({...adminFormData, assignDesc: e.target.value})} placeholder="Deskripsi Tugas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none min-h-[100px]" />
-                <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
-            </div>
-            <div className="flex gap-4">
-              <button onClick={() => setShowAssignmentModal(false)} className="flex-1 py-5 bg-slate-900 text-slate-400 font-black rounded-2xl uppercase">Batal</button>
-              <button onClick={handleAddOrEditAssignment} className="flex-1 py-5 active-gradient text-white font-black rounded-2xl uppercase">Simpan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{`
-        @media print { .no-print { display: none !important; } body { background: white !important; color: black !important; } .dark-card { border: none !important; box-shadow: none !important; } table { font-size: 8px !important; } th, td { border: 1px solid black !important; padding: 4px !important; color: black !important; } }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 };
