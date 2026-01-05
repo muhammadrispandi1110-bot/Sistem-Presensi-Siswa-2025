@@ -8,17 +8,24 @@ export interface Student {
   name: string;
 }
 
+export interface SubmissionData {
+  isSubmitted: boolean;
+  score: string;
+}
+
 export interface Assignment {
   id: string;
   title: string;
   description: string;
   dueDate: string;
+  submissions: { [studentId: string]: SubmissionData };
 }
 
 export interface ClassData {
   id: string;
   name: string;
   students: Student[];
+  assignments?: Assignment[];
 }
 
 export interface AttendanceRecord {
@@ -27,7 +34,7 @@ export interface AttendanceRecord {
   };
 }
 
-export type ViewType = 'Daily' | 'Weekly' | 'Monthly' | 'Semester' | 'Custom' | 'Assignments';
+export type ViewType = 'Daily' | 'Reports' | 'Assignments' | 'Admin';
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   'H': 'Hadir',
