@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [loginError, setLoginError] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabaseUrl = (window as any).process?.env?.VITE_SUPABASE_URL || "";
@@ -303,6 +304,22 @@ const App: React.FC = () => {
     showToast(editingAssignment ? 'Tugas diperbarui!' : 'Tugas baru ditambahkan!');
   };
 
+  const handleDeleteAssignment = (id: string) => {
+    if (window.confirm('Hapus tugas ini? Seluruh data nilai akan hilang permanen.')) {
+      setClasses(prev => prev.map(c => {
+        if (c.id === activeClassId) {
+          return {
+            ...c,
+            assignments: (c.assignments || []).filter(a => a.id !== id)
+          };
+        }
+        return c;
+      }));
+      showToast('Tugas berhasil dihapus.', 'info');
+      setActiveMenuId(null);
+    }
+  };
+
   const toggleScheduleDay = (day: number) => {
     setAdminFormData(prev => ({
       ...prev,
@@ -313,8 +330,6 @@ const App: React.FC = () => {
   };
 
   const handleSaveAttendance = () => {
-    // Data sebenarnya sudah tersimpan di localStorage via useEffect,
-    // tombol ini memberikan konfirmasi visual bagi user.
     localStorage.setItem('attendance_v5', JSON.stringify(attendance));
     showToast('Presensi berhasil disimpan ke memori lokal!', 'success');
   };
@@ -340,7 +355,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-slate-200">
+    <div className="min-h-screen bg-[#020617] text-slate-200" onClick={() => setActiveMenuId(null)}>
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 animate-in slide-in-from-top-4 duration-300 bg-indigo-950/90 border-indigo-500/30 text-indigo-100">
@@ -434,7 +449,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* REPORTS VIEW - REKAPITULASI */}
+          {/* REPORTS VIEW */}
           {view === 'Reports' && (
             <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 no-print">
@@ -510,7 +525,6 @@ const App: React.FC = () => {
                           <th className="p-6 font-black text-slate-500 uppercase w-12 text-center sticky left-0 bg-slate-950/80 z-20 print:bg-white print:text-black">No</th>
                           <th className="p-6 font-black text-slate-500 uppercase tracking-widest min-w-[200px] sticky left-12 bg-slate-950/80 z-20 print:bg-white print:text-black">Nama Peserta Didik</th>
                           
-                          {/* HEADERS TANGGAL DINAMIS */}
                           {reportDates.map((d, i) => (
                             <th key={i} className={`p-4 text-center font-black border-l border-white/5 min-w-[50px] print:border-black print:text-black ${MONTH_COLORS[d.getMonth()]}`}>
                                <span className="block text-[8px] opacity-70 mb-1">{DAY_NAMES[d.getDay()].slice(0, 3)}</span>
@@ -535,7 +549,6 @@ const App: React.FC = () => {
                               <td className="p-6 text-center font-bold text-slate-600 sticky left-0 bg-[#0f172a] group-hover:bg-slate-800 transition-colors z-10 print:bg-white print:text-black">{idx + 1}</td>
                               <td className="p-6 font-black text-white uppercase tracking-tight sticky left-12 bg-[#0f172a] group-hover:text-indigo-400 group-hover:bg-slate-800 transition-colors z-10 print:bg-white print:text-black">{s.name}</td>
                               
-                              {/* STATUS HARIAN */}
                               {reportDates.map((d, i) => {
                                  const status = attendance[s.id]?.[formatDate(d)] || 'H';
                                  const isFuture = isFutureDate(d);
@@ -574,13 +587,15 @@ const App: React.FC = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {(activeClass?.assignments || []).map(a => {
                   const subCount = getSubmittedCount(a);
                   const totalCount = activeClass?.students.length || 1;
                   const percent = Math.round((subCount / totalCount) * 100);
+                  const isMenuOpen = activeMenuId === a.id;
+
                   return (
-                    <div key={a.id} className="dark-card p-8 rounded-[2.5rem] space-y-5 relative overflow-hidden group">
+                    <div key={a.id} className="dark-card p-8 rounded-[2.5rem] space-y-6 relative overflow-visible group">
                       <div className="flex justify-between items-start">
                         <div className="flex items-center gap-4">
                           <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400">
@@ -591,17 +606,47 @@ const App: React.FC = () => {
                             <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest mt-1">Deadline: {new Date(a.dueDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}</p>
                           </div>
                         </div>
+
+                        {/* Menu Aksi Dropdown */}
+                        <div className="relative">
+                           <button 
+                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : a.id); }}
+                             className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 text-slate-500 transition-all"
+                           >
+                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" /></svg>
+                           </button>
+
+                           {isMenuOpen && (
+                             <div className="absolute right-0 mt-3 w-44 glass-panel border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in zoom-in-95 duration-200">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setEditingAssignment(a); setAdminFormData({ assignTitle: a.title, assignDesc: a.description || '', assignDue: a.dueDate, schedule: activeClass?.schedule || [] } as any); setShowAssignmentModal(true); setActiveMenuId(null); }}
+                                  className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase text-slate-400 hover:bg-white/5 hover:text-white transition-all text-left"
+                                >
+                                  <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  Ubah Tugas
+                                </button>
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleDeleteAssignment(a.id); }}
+                                  className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase text-rose-500/80 hover:bg-rose-500/10 hover:text-rose-500 transition-all border-t border-white/5 text-left"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  Hapus Tugas
+                                </button>
+                             </div>
+                           )}
+                        </div>
                       </div>
-                      <div className="space-y-2">
+
+                      <div className="space-y-3">
                         <div className="flex justify-between text-[9px] font-black uppercase tracking-widest">
-                          <span className="text-slate-500">Progres</span>
+                          <span className="text-slate-500">Kinerja Pengumpulan</span>
                           <span className="text-indigo-400 font-bold">{subCount} / {totalCount} Siswa</span>
                         </div>
                         <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
                           <div className="h-full bg-indigo-600 rounded-full transition-all duration-1000" style={{ width: `${percent}%` }}></div>
                         </div>
                       </div>
-                      <button onClick={() => { setActiveAssignment(a); setShowGradingModal(true); }} className="w-full py-4 bg-slate-900 border border-slate-800 rounded-2xl text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:bg-indigo-600 hover:text-white transition-all shadow-xl">Kelola Nilai</button>
+                      <button onClick={() => { setActiveAssignment(a); setShowGradingModal(true); }} className="w-full py-5 active-gradient text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest shadow-xl hover:scale-[1.02] transition-all">Kelola & Isi Nilai</button>
                     </div>
                   );
                 })}
@@ -609,7 +654,7 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {/* ADMIN VIEW */}
+          {/* Tab Admin (Sama seperti sebelumnya) */}
           {view === 'Admin' && (
             <div className="space-y-6">
               <div className="flex gap-4 p-1.5 bg-slate-900 rounded-[2rem] border border-white/5 overflow-x-auto scrollbar-hide">
@@ -622,11 +667,7 @@ const App: React.FC = () => {
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex items-center justify-between">
                       <h3 className="font-black text-white uppercase tracking-tighter text-xl">Manajemen Kelas</h3>
-                      <button onClick={() => { 
-                        setEditingClass(null); 
-                        setAdminFormData({ ...adminFormData, className: '', schedule: [1,2,3,4,5] }); 
-                        setShowClassModal(true); 
-                      }} className="px-6 py-3 active-gradient text-white rounded-xl font-black text-[10px] uppercase shadow-lg">Tambah Kelas</button>
+                      <button onClick={() => { setEditingClass(null); setAdminFormData({ ...adminFormData, className: '', schedule: [1,2,3,4,5] }); setShowClassModal(true); }} className="px-6 py-3 active-gradient text-white rounded-xl font-black text-[10px] uppercase shadow-lg">Tambah Kelas</button>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(c => (
@@ -640,11 +681,7 @@ const App: React.FC = () => {
                               </div>
                               <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">{c.students.length} Siswa Terdaftar</p>
                            </div>
-                           <button onClick={() => {
-                             setEditingClass(c);
-                             setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || [1,2,3,4,5]});
-                             setShowClassModal(true);
-                           }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all shadow-xl">
+                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || [1,2,3,4,5]}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 hover:bg-indigo-600 hover:text-white rounded-2xl transition-all shadow-xl">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                            </button>
                         </div>
@@ -690,7 +727,7 @@ const App: React.FC = () => {
 
       {/* MODALS SECTION */}
       {showGradingModal && activeAssignment && (
-        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-4xl p-8 md:p-12 rounded-[3.5rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20 max-h-[90vh] flex flex-col">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <div>
@@ -699,7 +736,6 @@ const App: React.FC = () => {
                </div>
                <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
-            {/* Modal Body Scroll */}
             <div className="flex-1 overflow-y-auto scrollbar-hide space-y-4 pr-2">
                {activeClass?.students.map((s, idx) => {
                  const sub = activeAssignment.submissions[s.id] || { isSubmitted: false, score: '' };
@@ -728,7 +764,7 @@ const App: React.FC = () => {
       )}
 
       {showClassModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20">
             <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingClass ? 'Ubah Informasi Kelas' : 'Tambah Kelas Baru'}</h4>
             <div className="space-y-6">
@@ -745,7 +781,6 @@ const App: React.FC = () => {
                         </button>
                       ))}
                     </div>
-                    <p className="text-[9px] font-bold text-indigo-400/60 italic text-center leading-relaxed px-4">Rekapitulasi hanya akan menampilkan tanggal pada hari yang dipilih di atas.</p>
                 </div>
             </div>
             <div className="flex gap-4">
@@ -757,7 +792,7 @@ const App: React.FC = () => {
       )}
 
       {showStudentModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20">
             <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingStudent ? 'Ubah Data Siswa' : 'Daftarkan Siswa'}</h4>
             <div className="space-y-4">
@@ -766,7 +801,7 @@ const App: React.FC = () => {
                   <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} placeholder="Input Nama" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-all" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">NIS (Nomor Induk Siswa)</label>
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">NIS</label>
                   <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} placeholder="Input NIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 transition-all" />
                 </div>
             </div>
@@ -779,8 +814,8 @@ const App: React.FC = () => {
       )}
 
       {showAssignmentModal && (
-        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300">
-          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl">
+        <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6 animate-in fade-in duration-300" onClick={(e) => e.stopPropagation()}>
+          <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8 animate-in zoom-in-95 shadow-2xl border-indigo-500/20">
             <h4 className="text-2xl font-black text-white uppercase tracking-tighter text-center">{editingAssignment ? 'Ubah Detail Tugas' : 'Buat Penugasan Baru'}</h4>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -788,7 +823,7 @@ const App: React.FC = () => {
                 <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Contoh: ANALISIS DATA" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 uppercase transition-all" />
               </div>
               <div className="space-y-2">
-                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Batas Pengumpulan (Deadline)</label>
+                <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Deadline</label>
                 <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none focus:border-indigo-500 transition-all" />
               </div>
             </div>
@@ -807,20 +842,14 @@ const App: React.FC = () => {
           .dark-card { border: none !important; background: transparent !important; box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; width: 100% !important; overflow: visible !important; }
           table { width: 100% !important; border-collapse: collapse !important; color: black !important; font-size: 8px !important; }
           th, td { border: 1px solid black !important; color: black !important; padding: 4px !important; background: transparent !important; position: static !important; }
-          th { font-weight: 900 !important; }
           header { display: none !important; }
           main { padding: 0 !important; width: 100% !important; max-width: 100% !important; }
           .view-transition { transform: none !important; animation: none !important; }
-          .bg-slate-900\/40 { background: transparent !important; }
-          .text-white { color: black !important; }
-          .text-slate-400, .text-slate-500, .text-slate-600 { color: #333 !important; }
-          [class*='bg-'], [class*='text-'] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Smooth scrolling for reports table */
         .overflow-x-auto {
            scroll-behavior: smooth;
            -webkit-overflow-scrolling: touch;
