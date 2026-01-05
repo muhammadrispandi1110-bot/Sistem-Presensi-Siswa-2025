@@ -31,6 +31,7 @@ interface Notification {
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
+  const [isLoading, setIsLoading] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   
@@ -42,20 +43,14 @@ const App: React.FC = () => {
     return null;
   }, [database.url, database.anonKey]);
 
-  const [classes, setClasses] = useState<ClassData[]>(() => {
-    const saved = localStorage.getItem('classes_v1');
-    return saved ? JSON.parse(saved) : INITIAL_CLASSES;
-  });
+  // Data awal kosong, akan diisi dari Cloud
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord>({});
 
-  const [attendance, setAttendance] = useState<AttendanceRecord>(() => {
-    const saved = localStorage.getItem('attendance_v5');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  const [activeClassId, setActiveClassId] = useState(classes[0]?.id || '');
+  const [activeClassId, setActiveClassId] = useState('');
   const [view, setView] = useState<ViewType>('Daily');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
-  const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database' | 'Cloud'>('Kelas');
+  const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
   const [activeMonth, setActiveMonth] = useState(defaults.startMonth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -87,8 +82,8 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
-  const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord, manual = false) => {
-    if (!supabase || !isAuthenticated) return;
+  const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord) => {
+    if (!supabase || !isAuthenticated || currentClasses.length === 0) return;
     setIsSyncing(true);
     try {
       const { error } = await supabase
@@ -101,18 +96,22 @@ const App: React.FC = () => {
         });
       if (error) throw error;
       setLastSync(new Date().toLocaleTimeString());
-      if (manual) showToast('Sinkronisasi Berhasil!', 'success');
     } catch (err: any) {
-      console.error('Cloud Sync Error:', err);
-      if (manual) showToast(`Gagal: ${err.message}`, 'error');
+      console.error('Auto-Sync Error:', err);
     } finally {
       setIsSyncing(false);
     }
   };
 
   const fetchFromCloud = async () => {
-    if (!supabase) return;
-    setIsSyncing(true);
+    if (!supabase) {
+      // Jika cloud tidak diset, gunakan INITIAL_CLASSES sebagai fallback
+      setClasses(INITIAL_CLASSES);
+      setActiveClassId(INITIAL_CLASSES[0].id);
+      return;
+    }
+    
+    setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('app_storage')
@@ -125,33 +124,39 @@ const App: React.FC = () => {
       if (data) {
         setClasses(data.classes);
         setAttendance(data.attendance);
+        if (data.classes.length > 0) setActiveClassId(data.classes[0].id);
         setLastSync(new Date(data.updated_at).toLocaleTimeString());
-        showToast('Data Cloud Dimuat!', 'info');
+        showToast('Data Cloud Berhasil Dimuat!', 'info');
       } else {
-        // Jika cloud kosong, kirim data lokal ke cloud (inisialisasi)
-        pushToCloud(classes, attendance);
+        // Jika data cloud masih kosong sama sekali (pertama kali pakai)
+        setClasses(INITIAL_CLASSES);
+        setActiveClassId(INITIAL_CLASSES[0].id);
+        // Langsung inisialisasi cloud dengan data default
+        await pushToCloud(INITIAL_CLASSES, {});
       }
     } catch (err: any) {
-      console.log('Fetching cloud failed:', err);
-      showToast('Gagal memuat Cloud, menggunakan data lokal.', 'error');
+      console.error('Initial Load Failed:', err);
+      showToast('Gagal terhubung ke Cloud!', 'error');
     } finally {
-      setIsSyncing(false);
+      setIsLoading(false);
     }
   };
 
+  // Efek Auto-Save: Berjalan setiap kali ada perubahan pada classes atau attendance
   useEffect(() => {
-    if (isAuthenticated) {
-      localStorage.setItem('attendance_v5', JSON.stringify(attendance));
-      localStorage.setItem('classes_v1', JSON.stringify(classes));
+    if (isAuthenticated && classes.length > 0) {
       const debounceTimer = setTimeout(() => {
         pushToCloud(classes, attendance);
-      }, database.syncDebounceMs);
+      }, 1000); // Sinkronisasi otomatis setiap 1 detik setelah perubahan berhenti
       return () => clearTimeout(debounceTimer);
     }
   }, [attendance, classes, isAuthenticated]);
 
+  // Load data hanya saat login berhasil
   useEffect(() => {
-    if (isAuthenticated && isCloudConfigured) fetchFromCloud();
+    if (isAuthenticated) {
+      fetchFromCloud();
+    }
   }, [isAuthenticated]);
 
   const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
@@ -160,14 +165,18 @@ const App: React.FC = () => {
     e.preventDefault();
     if (loginForm.user === auth.username && loginForm.pass === auth.password) {
       setIsAuthenticated(true);
-      showToast('Akses Diterima!', 'info');
     } else {
       showToast('Kredensial Salah!', 'error');
     }
   };
 
   const handleLogout = () => {
-    if (window.confirm('Keluar sistem?')) setIsAuthenticated(false);
+    if (window.confirm('Keluar sistem?')) {
+      setIsAuthenticated(false);
+      setClasses([]);
+      setAttendance({});
+      setActiveClassId('');
+    }
   };
 
   const handleStatusChange = (studentId: string, date: string, status: AttendanceStatus) => {
@@ -176,10 +185,6 @@ const App: React.FC = () => {
       ...prev,
       [studentId]: { ...(prev[studentId] || {}), [date]: status }
     }));
-  };
-
-  const handleSaveAttendance = () => {
-    pushToCloud(classes, attendance, true);
   };
 
   const calculateStats = (studentId: string, dates: Date[]) => {
@@ -199,7 +204,7 @@ const App: React.FC = () => {
   }, [reportTab, currentDate, activeMonth, activeClass]);
 
   const classSummary = useMemo(() => {
-    if (!activeClass) return null;
+    if (!activeClass || activeClass.students.length === 0) return null;
     let totalH = 0, totalA = 0, totalS = 0, totalI = 0;
     let studentStats = activeClass.students.map(s => {
       const stats = calculateStats(s.id, reportDates);
@@ -214,7 +219,7 @@ const App: React.FC = () => {
       best: sorted[0]?.name || '-',
       absentRate: Math.round(((totalA + totalS + totalI) / (totalH + totalA + totalS + totalI || 1)) * 100)
     };
-  }, [activeClass, reportDates]);
+  }, [activeClass, reportDates, attendance]);
 
   const exportReportToExcel = () => {
     if (!activeClass) return;
@@ -317,6 +322,7 @@ const App: React.FC = () => {
     }
   };
 
+  // Layar Login
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen login-bg flex items-center justify-center p-6">
@@ -328,7 +334,7 @@ const App: React.FC = () => {
           <form onSubmit={handleLogin} className="space-y-6">
             <input type="text" value={loginForm.user} onChange={e => setLoginForm({...loginForm, user: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Username" />
             <input type="password" value={loginForm.pass} onChange={e => setLoginForm({...loginForm, pass: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Password" />
-            <button type="submit" className="w-full active-gradient text-white font-black py-5 rounded-2xl uppercase tracking-widest">Masuk Sistem</button>
+            <button type="submit" className="w-full active-gradient text-white font-black py-5 rounded-2xl uppercase tracking-widest transition-transform active:scale-95">Masuk Sistem</button>
           </form>
           <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{school.name} - {school.year}</p>
         </div>
@@ -336,12 +342,23 @@ const App: React.FC = () => {
     );
   }
 
+  // Layar Loading Cloud
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center p-6">
+        <div className="w-16 h-16 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin"></div>
+        <p className="mt-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] animate-pulse">Menghubungkan ke Cloud...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200" onClick={() => setActiveMenuId(null)}>
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-sm px-4">
+      {/* Notifikasi */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-w-sm px-4">
         {notifications.map(n => (
-          <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 bg-indigo-950/90 border-indigo-500/30 text-indigo-100">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.type === 'error' ? 'bg-rose-500' : 'bg-indigo-500'}`}>
+          <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 bg-slate-900/90 border-white/5 text-white">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${n.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'}`}>
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg>
             </div>
             <p className="text-[10px] font-black uppercase tracking-widest">{n.message}</p>
@@ -357,11 +374,14 @@ const App: React.FC = () => {
               <h1 className="font-black text-white text-lg uppercase leading-none">{activeClass?.name || 'Sistem Sekolah'}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{school.name}</p>
-                <div className={`w-2 h-2 rounded-full ${isCloudConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isCloudConfigured ? "Cloud Active" : "Local Mode"}></div>
+                <div className={`flex items-center gap-1.5`}>
+                   <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'}`}></div>
+                   <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">{isSyncing ? 'Menyimpan...' : 'Tersimpan di Cloud'}</span>
+                </div>
               </div>
             </div>
           </div>
-          <button onClick={handleLogout} className="px-5 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl font-black text-[10px] uppercase">Keluar</button>
+          <button onClick={handleLogout} className="px-5 py-3 bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl font-black text-[10px] uppercase transition-colors hover:bg-rose-500 hover:text-white">Keluar</button>
         </div>
       </header>
 
@@ -369,7 +389,7 @@ const App: React.FC = () => {
         <div className="no-print space-y-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {classes.map(c => (
-              <button key={c.id} onClick={() => setActiveClassId(c.id)} className={`flex-none px-6 py-4 rounded-2xl font-black text-[10px] uppercase border transition-all ${activeClassId === c.id ? 'active-gradient border-transparent text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
+              <button key={c.id} onClick={() => setActiveClassId(c.id)} className={`flex-none px-6 py-4 rounded-2xl font-black text-[10px] uppercase border transition-all ${activeClassId === c.id ? 'active-gradient border-transparent text-white' : 'bg-slate-900 border-slate-800 text-slate-500 hover:bg-slate-800'}`}>
                 {c.name}
               </button>
             ))}
@@ -400,12 +420,8 @@ const App: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={handleSaveAttendance} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 hover:bg-indigo-700">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                    Simpan
-                  </button>
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 transition-colors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
                 </div>
               </div>
               <div className="space-y-3">
@@ -422,7 +438,7 @@ const App: React.FC = () => {
                       </div>
                       <div className="flex gap-1.5">
                         {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(st => (
-                          <button key={st} onClick={() => handleStatusChange(s.id, formatDate(currentDate), st)} className={`w-10 h-10 rounded-xl text-[10px] font-black border ${status === st ? DARK_STATUS_COLORS[st] + ' scale-110' : 'bg-transparent border-transparent text-slate-700'}`}>{st}</button>
+                          <button key={st} onClick={() => handleStatusChange(s.id, formatDate(currentDate), st)} className={`w-10 h-10 rounded-xl text-[10px] font-black border transition-all ${status === st ? DARK_STATUS_COLORS[st] + ' scale-110 shadow-lg' : 'bg-transparent border-transparent text-slate-700 hover:text-slate-500'}`}>{st}</button>
                         ))}
                       </div>
                     </div>
@@ -437,17 +453,17 @@ const App: React.FC = () => {
               <div className="flex flex-col md:flex-row items-center justify-between gap-4 no-print">
                  <div className="flex gap-2 p-1.5 bg-slate-900 rounded-[1.5rem] border border-white/5">
                     {['Weekly', 'Monthly', 'Semester'].map(t => (
-                      <button key={t} onClick={() => setReportTab(t as any)} className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase ${reportTab === t ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600'}`}>{t === 'Weekly' ? 'Mingguan' : t === 'Monthly' ? 'Bulanan' : 'Semester'}</button>
+                      <button key={t} onClick={() => setReportTab(t as any)} className={`px-6 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${reportTab === t ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{t === 'Weekly' ? 'Mingguan' : t === 'Monthly' ? 'Bulanan' : 'Semester'}</button>
                     ))}
                  </div>
                  <div className="flex gap-3">
-                   <button onClick={exportReportToExcel} className="px-6 py-4 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-2xl font-black text-[11px] uppercase flex items-center gap-3">
+                   <button onClick={exportReportToExcel} className="px-6 py-4 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 rounded-2xl font-black text-[11px] uppercase flex items-center gap-3 hover:bg-emerald-600 hover:text-white transition-all">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                      Unduh Excel
+                      Excel
                    </button>
-                   <button onClick={() => window.print()} className="px-8 py-4 active-gradient text-white rounded-2xl font-black text-[11px] uppercase flex items-center gap-3 shadow-2xl">
+                   <button onClick={() => window.print()} className="px-8 py-4 active-gradient text-white rounded-2xl font-black text-[11px] uppercase flex items-center gap-3 shadow-2xl transition-transform active:scale-95">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                      Cetak Rekap
+                      Cetak
                    </button>
                  </div>
               </div>
@@ -455,7 +471,7 @@ const App: React.FC = () => {
               {reportTab === 'Monthly' && (
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-print">
                    {MONTHS_2026.map(m => (
-                     <button key={m.value} onClick={() => setActiveMonth(m.value)} className={`flex-none px-6 py-3 rounded-2xl text-[10px] font-black uppercase border transition-all ${activeMonth === m.value ? MONTH_COLORS[m.value] : 'border-slate-800 text-slate-600'}`}>{m.name}</button>
+                     <button key={m.value} onClick={() => setActiveMonth(m.value)} className={`flex-none px-6 py-3 rounded-2xl text-[10px] font-black uppercase border transition-all ${activeMonth === m.value ? MONTH_COLORS[m.value] : 'border-slate-800 text-slate-600 hover:border-slate-600'}`}>{m.name}</button>
                    ))}
                 </div>
               )}
@@ -531,6 +547,9 @@ const App: React.FC = () => {
                             </tr>
                           );
                         })}
+                        {activeClass?.students.length === 0 && (
+                          <tr><td colSpan={reportDates.length + 7} className="p-12 text-center text-slate-500 font-bold uppercase tracking-widest italic">Belum ada data siswa di kelas ini</td></tr>
+                        )}
                       </tbody>
                     </table>
                  </div>
@@ -542,7 +561,7 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="flex items-center justify-between no-print">
                 <h2 className="text-xl font-black text-white uppercase tracking-tighter">Daftar Penugasan</h2>
-                <button onClick={() => { setEditingAssignment(null); setAdminFormData({ ...adminFormData, assignTitle: '', assignDesc: '', assignDue: formatDate(new Date()) }); setShowAssignmentModal(true); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2">
+                <button onClick={() => { setEditingAssignment(null); setAdminFormData({ ...adminFormData, assignTitle: '', assignDesc: '', assignDue: formatDate(new Date()) }); setShowAssignmentModal(true); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-xl flex items-center gap-2 transition-transform active:scale-95">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4" /></svg>
                   Buat Tugas
                 </button>
@@ -566,21 +585,21 @@ const App: React.FC = () => {
                           </div>
                         </div>
                         <div className="relative">
-                           <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : a.id); }} className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500">
+                           <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(isMenuOpen ? null : a.id); }} className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-slate-500 hover:text-white transition-colors">
                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01" /></svg>
                            </button>
                            {isMenuOpen && (
                              <div className="absolute right-0 mt-3 w-44 glass-panel border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
-                                <button onClick={(e) => { e.stopPropagation(); setEditingAssignment(a); setAdminFormData({ ...adminFormData, assignTitle: a.title, assignDesc: a.description || '', assignDue: a.dueDate }); setShowAssignmentModal(true); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all text-left">Ubah Tugas</button>
+                                <button onClick={(e) => { e.stopPropagation(); setEditingAssignment(a); setAdminFormData({ ...adminFormData, assignTitle: a.title, assignDesc: a.description || '', assignDue: a.dueDate }); setShowAssignmentModal(true); setActiveMenuId(null); }} className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase text-slate-400 hover:text-white hover:bg-white/5 transition-all text-left">Ubah Tugas</button>
                                 <button onClick={(e) => { e.stopPropagation(); handleDeleteAssignment(a.id); }} className="w-full flex items-center gap-3 px-5 py-4 text-[10px] font-black uppercase text-rose-500 hover:bg-rose-500/10 transition-all border-t border-white/5 text-left">Hapus Tugas</button>
                              </div>
                            )}
                         </div>
                       </div>
                       <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                        <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${percent}%` }}></div>
+                        <div className="h-full bg-indigo-600 rounded-full transition-all duration-700" style={{ width: `${percent}%` }}></div>
                       </div>
-                      <button onClick={() => { setActiveAssignment(a); setShowGradingModal(true); }} className="w-full py-5 active-gradient text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest">Kelola & Isi Nilai</button>
+                      <button onClick={() => { setActiveAssignment(a); setShowGradingModal(true); }} className="w-full py-5 active-gradient text-white rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-transform active:scale-[0.98]">Kelola & Isi Nilai</button>
                     </div>
                   );
                 })}
@@ -591,8 +610,8 @@ const App: React.FC = () => {
           {view === 'Admin' && (
             <div className="space-y-6">
               <div className="flex gap-4 p-1.5 bg-slate-900 rounded-[2rem] border border-white/5 overflow-x-auto scrollbar-hide">
-                 {['Kelas', 'Siswa', 'Database', 'Cloud'].map(t => (
-                   <button key={t} onClick={() => setAdminTab(t as any)} className={`flex-none md:flex-1 px-6 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all ${adminTab === t ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>{t}</button>
+                 {['Kelas', 'Siswa', 'Database'].map(t => (
+                   <button key={t} onClick={() => setAdminTab(t as any)} className={`flex-none md:flex-1 px-6 py-4 rounded-[1.5rem] font-black text-[10px] uppercase tracking-widest transition-all ${adminTab === t ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}>{t}</button>
                  ))}
               </div>
               
@@ -604,16 +623,16 @@ const App: React.FC = () => {
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(c => (
-                        <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2.5rem] flex items-center justify-between">
+                        <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2.5rem] flex items-center justify-between group transition-all hover:border-indigo-500/50">
                            <div>
-                              <p className="font-black text-white uppercase text-sm">{c.name}</p>
+                              <p className="font-black text-white uppercase text-sm group-hover:text-indigo-400 transition-colors">{c.name}</p>
                               <div className="flex flex-wrap gap-1 mt-2">
                                 {(c.schedule || defaults.teachingDays).map(d => (
                                   <span key={d} className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[7px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0,3)}</span>
                                 ))}
                               </div>
                            </div>
-                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl">
+                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl hover:text-white transition-colors">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5" /></svg>
                            </button>
                         </div>
@@ -626,7 +645,7 @@ const App: React.FC = () => {
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex justify-between items-center">
                       <h3 className="font-black text-white uppercase tracking-tighter text-xl">Siswa - {activeClass?.name}</h3>
-                      <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase">Tambah Siswa</button>
+                      <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase hover:bg-emerald-500">Tambah Siswa</button>
                    </div>
                    <div className="overflow-x-auto">
                       <table className="w-full text-left text-[10px]">
@@ -635,11 +654,11 @@ const App: React.FC = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                           {activeClass?.students.map(s => (
-                            <tr key={s.id}>
+                            <tr key={s.id} className="hover:bg-white/5">
                               <td className="p-4 font-black text-white uppercase">{s.name}</td>
                               <td className="p-4 text-slate-400">{s.nis}</td>
                               <td className="p-4 text-center">
-                                <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7" /></svg></button>
+                                <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:text-rose-400 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7" /></svg></button>
                               </td>
                             </tr>
                           ))}
@@ -649,48 +668,36 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {adminTab === 'Cloud' && (
+              {adminTab === 'Database' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="dark-card p-8 rounded-[2.5rem] space-y-8 shadow-2xl">
-                    <div className="flex items-center gap-6">
-                      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${isCloudConfigured ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-500' : 'bg-slate-900 border border-slate-800 text-slate-600'}`}>
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-black text-white uppercase">Status Supabase</h3>
-                        <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase tracking-widest">{isCloudConfigured ? 'TERKONEKSI' : 'MODE LOKAL'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-4">
-                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <span>Sinkron Terakhir:</span>
-                        <span className="text-indigo-400">{lastSync || 'Belum Pernah'}</span>
-                      </div>
-                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        <span>ID Penyimpanan:</span>
-                        <span className="text-white">{database.storageId}</span>
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => pushToCloud(classes, attendance, true)}
-                      disabled={!isCloudConfigured || isSyncing}
-                      className={`w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isCloudConfigured ? 'active-gradient text-white shadow-xl' : 'bg-slate-900 text-slate-700'}`}
-                    >
-                      {isSyncing ? 'PROSES...' : 'Kirim Data Lokal ke Cloud'}
-                    </button>
+                  <div className="dark-card p-10 rounded-[3rem] space-y-8 flex flex-col items-center text-center">
+                     <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 rounded-3xl flex items-center justify-center text-emerald-500">
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>
+                     </div>
+                     <div>
+                        <h4 className="text-xl font-black text-white uppercase mb-2">Penyimpanan Aktif</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                           Sistem saat ini sepenuhnya berjalan di atas layanan Supabase Cloud.<br/>
+                           Data akan diperbarui secara otomatis setiap ada perubahan.
+                        </p>
+                     </div>
+                     <div className="w-full p-6 bg-slate-950 rounded-[2rem] border border-white/5 text-left">
+                        <div className="flex justify-between items-center mb-2">
+                           <span className="text-[9px] font-black text-slate-600 uppercase">Cloud ID</span>
+                           <span className="text-[10px] font-black text-white">{database.storageId}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                           <span className="text-[9px] font-black text-slate-600 uppercase">Sinkron Terakhir</span>
+                           <span className="text-[10px] font-black text-emerald-400">{lastSync || 'Sesaat lalu'}</span>
+                        </div>
+                     </div>
                   </div>
-
-                  <div className="dark-card p-8 rounded-[2.5rem] space-y-6 bg-amber-500/5 border-amber-500/20">
-                    <h3 className="text-lg font-black text-amber-500 uppercase">Petunjuk Sinkronisasi</h3>
-                    <p className="text-[11px] text-slate-400 leading-relaxed font-medium">
-                      Data di HP/Laptop Bapak bersifat mandiri. Gunakan tombol <span className="text-white font-bold">Kirim Data Lokal ke Cloud</span> jika Bapak baru saja mengisi data dan ingin memastikannya tersimpan di Supabase agar bisa dibuka di perangkat lain.
-                    </p>
-                    <div className="p-4 bg-slate-950 rounded-2xl border border-white/5">
-                       <p className="text-[9px] font-black text-slate-500 uppercase mb-2">Penyimpanan Terdeteksi:</p>
-                       <p className="text-[10px] font-bold text-white">Kelas: {classes.length} | Siswa: {classes.reduce((acc, c) => acc + c.students.length, 0)}</p>
-                    </div>
+                  <div className="dark-card p-10 rounded-[3rem] space-y-6 bg-rose-500/5 border-rose-500/20">
+                     <h4 className="text-lg font-black text-rose-500 uppercase">Perhatian Keamanan</h4>
+                     <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                        Aplikasi ini tidak menyimpan data apapun secara permanen di browser (Local Storage) untuk menjaga keamanan data di perangkat bersama.<br/><br/>
+                        Pastikan Bapak terhubung ke internet saat melakukan penginputan agar data langsung masuk ke server Supabase.
+                     </p>
                   </div>
                 </div>
               )}
@@ -707,7 +714,7 @@ const App: React.FC = () => {
                <h4 className="text-2xl font-black text-white uppercase">Penilaian: {activeAssignment.title}</h4>
                <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6" /></svg></button>
             </div>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4 scrollbar-hide">
                {activeClass?.students.map((s, idx) => {
                  const sub = activeAssignment.submissions[s.id] || { isSubmitted: false, score: '' };
                  return (
@@ -717,18 +724,19 @@ const App: React.FC = () => {
                          <p className={`font-black uppercase text-xs ${sub.isSubmitted ? 'text-emerald-400' : 'text-white'}`}>{s.name}</p>
                       </div>
                       <div className="flex items-center gap-6">
-                         <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-10 h-10 rounded-xl flex items-center justify-center border ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-transparent'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg></button>
-                         <input type="text" value={sub.score} onChange={(e) => updateSubmission(activeAssignment.id, s.id, 'score', e.target.value)} placeholder="0" className="w-20 bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-sm font-black text-white outline-none" />
+                         <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-transparent hover:border-slate-600'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg></button>
+                         <input type="text" value={sub.score} onChange={(e) => updateSubmission(activeAssignment.id, s.id, 'score', e.target.value)} placeholder="0" className="w-20 bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-sm font-black text-white outline-none focus:border-indigo-500" />
                       </div>
                    </div>
                  );
                })}
             </div>
-            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Disimpan!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em]">Simpan Seluruh Nilai</button>
+            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Berhasil!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em] transition-transform active:scale-95">Tutup & Simpan</button>
           </div>
         </div>
       )}
 
+      {/* Modal Kelas & Siswa tetap sama but simplified trigger */}
       {showClassModal && (
         <div className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">

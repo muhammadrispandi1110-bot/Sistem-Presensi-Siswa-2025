@@ -2,52 +2,45 @@
 # Panduan Penggunaan Sistem Presensi & Penilaian Digital
 ## SMAN 11 Makassar - Semester Ganjil 2026
 
-Aplikasi ini menggunakan sistem **Single Row JSON Sync** untuk memastikan data Kelas, Siswa, Tugas, dan Nilai selalu sinkron antar perangkat tanpa konflik database yang rumit.
+Aplikasi ini sekarang menggunakan sistem **Cloud-Only Architecture**. Seluruh data disimpan dan diambil langsung dari Supabase tanpa meninggalkan jejak di memori browser (LocalStorage).
 
 ---
 
 ## 1. Akses Sistem (Login)
-*   **Username**: `admin` (Dapat diubah di `config.ts`)
-*   **Password**: `admin` (Dapat diubah di `config.ts`)
+*   **Username**: `admin`
+*   **Password**: `admin`
+*   Data hanya akan dimuat setelah Bapak berhasil login. Jika Bapak keluar (Logout), data akan dibersihkan dari layar.
 
 ---
 
-## 2. Persiapan Database (PENTING)
-Agar data tersimpan secara permanen di awan, Bapak harus membuat tabel berikut di Supabase:
+## 2. Sinkronisasi Otomatis (Auto-Save)
+*   **Tidak ada tombol simpan manual**: Aplikasi akan mendeteksi setiap perubahan (Absensi, Nilai, Data Siswa) dan mengirimkannya ke server dalam waktu 1 detik setelah Bapak berhenti mengetik/mengklik.
+*   Perhatikan indikator di bawah nama sekolah: 
+    *   `🟢 Tersimpan di Cloud`: Data sudah aman.
+    *   `🟡 Menyimpan...`: Sedang proses pengiriman data.
 
-1.  Buka **[Supabase Dashboard](https://supabase.com/dashboard)**.
-2.  Pilih Project Bapak.
-3.  Klik menu **SQL Editor**.
-4.  Klik **New Query** dan tempel kode berikut, lalu klik **Run**:
+---
+
+## 3. Persiapan Database
+Pastikan tabel `app_storage` sudah dibuat di Supabase Bapak melalui **SQL Editor**:
 
 ```sql
-CREATE TABLE app_storage (
+CREATE TABLE IF NOT EXISTS app_storage (
   id TEXT PRIMARY KEY,
   classes JSONB NOT NULL DEFAULT '[]',
   attendance JSONB NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Matikan RLS atau buat policy agar aplikasi bisa menulis data
+-- Kebijakan Akses Publik
 ALTER TABLE app_storage ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public Access" ON app_storage FOR ALL USING (true) WITH CHECK (true);
 ```
 
 ---
 
-## 3. Menghubungkan ke Netlify
-1.  Dapatkan **URL** dan **Anon Key** dari menu **Settings > API** di Supabase.
-2.  Masukkan ke Netlify Environment Variables:
-    *   `VITE_SUPABASE_URL` = [URL Bapak]
-    *   `VITE_SUPABASE_ANON_KEY` = [Anon Key Bapak]
-3.  Deploy ulang aplikasi.
-
----
-
-## 4. Status Koneksi
-Perhatikan titik di samping nama sekolah:
-*   ⚪ **Abu-abu**: Mode Lokal (Data hanya tersimpan di browser ini).
-*   🟢 **Hijau**: Mode Cloud (Data tersimpan aman di Supabase).
+## 4. Keamanan
+Karena aplikasi ini tidak menyimpan data di `LocalStorage`, data Bapak sangat aman jika perangkat hilang atau digunakan orang lain (selama Bapak sudah Logout). Pastikan koneksi internet stabil saat melakukan pengisian.
 
 ---
 *Dibuat untuk kemajuan digitalisasi SMAN 11 Makassar.*

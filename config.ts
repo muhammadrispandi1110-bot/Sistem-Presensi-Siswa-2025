@@ -19,7 +19,7 @@ export const APP_CONFIG = {
     url: (window as any).process?.env?.VITE_SUPABASE_URL || "",
     anonKey: (window as any).process?.env?.VITE_SUPABASE_ANON_KEY || "",
     storageId: 'main_store', // ID baris di tabel app_storage
-    syncDebounceMs: 2000,   // Jeda waktu sebelum push ke cloud (ms)
+    syncDebounceMs: 1000,   // Jeda waktu sebelum push ke cloud (ms) - Dipercepat menjadi 1 detik
   },
 
   // Pengaturan Default Aplikasi
