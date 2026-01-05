@@ -7,7 +7,7 @@ import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates,
 const DARK_STATUS_COLORS: Record<AttendanceStatus, string> = {
   'H': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 ring-emerald-500/20',
   'S': 'text-blue-400 bg-blue-500/10 border-blue-500/30 ring-blue-500/20',
-  'I': 'text-amber-400 bg-amber-500/10 border-amber-500/30 ring-amber-500/20',
+  'I': 'text-amber-400 bg-amber-500/10 border-amber-500/30 ring-emerald-500/20',
   'A': 'text-rose-400 bg-rose-500/10 border-rose-500/30 ring-rose-500/20'
 };
 
@@ -697,7 +697,7 @@ const App: React.FC = () => {
                          <h4 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest">Langkah-langkah:</h4>
                          <ol className="text-[10px] text-slate-400 space-y-2 list-decimal ml-4 font-bold">
                             <li>Buka <a href="https://supabase.com/dashboard" target="_blank" className="text-indigo-400 underline">Dashboard Supabase</a></li>
-                            <li>Pilih Project Bapak > Klik Ikon <b>Settings (Gerigi ⚙️)</b></li>
+                            <li>Pilih Project Bapak &gt; Klik Ikon <b>Settings (Gerigi ⚙️)</b></li>
                             <li>Klik Menu <b>API</b></li>
                             <li>Salin <b>Project URL</b> dan <b>anon public key</b></li>
                          </ol>
