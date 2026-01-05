@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
 import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES } from './types.ts';
 import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
@@ -32,15 +33,14 @@ const App: React.FC = () => {
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // Inisialisasi Supabase
-  const supabaseUrl = (window as any).process?.env?.VITE_SUPABASE_URL || "";
-  const supabaseAnonKey = (window as any).process?.env?.VITE_SUPABASE_ANON_KEY || "";
-  const isCloudConfigured = supabaseUrl !== "" && supabaseAnonKey !== "";
+  // Ambil config dari file pusat
+  const { database, auth, school, defaults } = APP_CONFIG;
+  const isCloudConfigured = database.url !== "" && database.anonKey !== "";
   
   const supabase = useMemo(() => {
-    if (isCloudConfigured) return createClient(supabaseUrl, supabaseAnonKey);
+    if (isCloudConfigured) return createClient(database.url, database.anonKey);
     return null;
-  }, [supabaseUrl, supabaseAnonKey]);
+  }, [database.url, database.anonKey]);
 
   const [classes, setClasses] = useState<ClassData[]>(() => {
     const saved = localStorage.getItem('classes_v1');
@@ -56,8 +56,8 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewType>('Daily');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database' | 'Cloud'>('Kelas');
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 0, 1));
-  const [activeMonth, setActiveMonth] = useState(0);
+  const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
+  const [activeMonth, setActiveMonth] = useState(defaults.startMonth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   
@@ -78,10 +78,8 @@ const App: React.FC = () => {
     assignTitle: '',
     assignDesc: '',
     assignDue: formatDate(new Date()),
-    schedule: [1,2,3,4,5]
+    schedule: defaults.teachingDays
   });
-
-  const schoolName = "SMAN 11 MAKASSAR";
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now();
@@ -89,23 +87,19 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
-  // --- FUNGSI CLOUD SYNC ---
   const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord) => {
     if (!supabase || !isAuthenticated) return;
     setIsSyncing(true);
     try {
-      // Simpan data dalam bentuk JSON tunggal untuk kemudahan sinkronisasi master
       const { error } = await supabase
-        .from('app_storage') // Pastikan tabel ini ada di Supabase
+        .from('app_storage')
         .upsert({ 
-          id: 'main_store', 
+          id: database.storageId, 
           classes: currentClasses, 
           attendance: currentAttendance,
           updated_at: new Date()
         });
-      
       if (error) throw error;
-      console.log('Cloud Sync Success');
     } catch (err) {
       console.error('Cloud Sync Error:', err);
     } finally {
@@ -117,53 +111,48 @@ const App: React.FC = () => {
     if (!supabase) return;
     setIsSyncing(true);
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('app_storage')
         .select('*')
-        .eq('id', 'main_store')
+        .eq('id', database.storageId)
         .single();
       
       if (data) {
         setClasses(data.classes);
         setAttendance(data.attendance);
-        showToast('Data Cloud berhasil dimuat!', 'info');
+        showToast('Data Cloud Sinkron!', 'info');
       }
     } catch (err) {
-      console.log('No cloud data yet or error:', err);
+      console.log('Fetching cloud failed:', err);
     } finally {
       setIsSyncing(false);
     }
   };
 
-  // Sinkronisasi Lokal & Cloud
   useEffect(() => {
     if (isAuthenticated) {
       localStorage.setItem('attendance_v5', JSON.stringify(attendance));
       localStorage.setItem('classes_v1', JSON.stringify(classes));
-      
       const debounceTimer = setTimeout(() => {
         pushToCloud(classes, attendance);
-      }, 2000); // Debounce push ke cloud agar tidak terlalu sering
-      
+      }, database.syncDebounceMs);
       return () => clearTimeout(debounceTimer);
     }
   }, [attendance, classes, isAuthenticated]);
 
   useEffect(() => {
-    if (isAuthenticated && isCloudConfigured) {
-      fetchFromCloud();
-    }
+    if (isAuthenticated && isCloudConfigured) fetchFromCloud();
   }, [isAuthenticated]);
 
   const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loginForm.user === 'admin' && loginForm.pass === 'admin') {
+    if (loginForm.user === auth.username && loginForm.pass === auth.password) {
       setIsAuthenticated(true);
       showToast('Akses Diterima!', 'info');
     } else {
-      showToast('Login Gagal!', 'error');
+      showToast('Kredensial Salah!', 'error');
     }
   };
 
@@ -179,10 +168,9 @@ const App: React.FC = () => {
     }));
   };
 
-  // Fix: Added handleSaveAttendance to save data and show notification as requested by missing function error.
   const handleSaveAttendance = () => {
     pushToCloud(classes, attendance);
-    showToast('Presensi berhasil disimpan ke Cloud!', 'success');
+    showToast('Data dikirim ke Cloud!', 'success');
   };
 
   const calculateStats = (studentId: string, dates: Date[]) => {
@@ -222,7 +210,7 @@ const App: React.FC = () => {
   const exportReportToExcel = () => {
     if (!activeClass) return;
     const period = reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester';
-    const filename = `Rekap_Presensi_${activeClass.name}_${period}.csv`;
+    const filename = `Rekap_${activeClass.name}_${period}.csv`;
     const dateHeaders = reportDates.map(d => formatDate(d));
     const headerRow = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A", "%"];
     const rows = [
@@ -239,10 +227,10 @@ const App: React.FC = () => {
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
+    link.href = url;
+    link.download = filename;
     link.click();
-    showToast('Rekap Excel Berhasil Diunduh!');
+    showToast('Rekap Diunduh!');
   };
 
   const handleAddOrEditClass = () => {
@@ -270,15 +258,10 @@ const App: React.FC = () => {
     setEditingStudent(null);
   };
 
-  // Fix: Added handleDeleteStudent to remove a student from the active class state as requested by missing function error.
   const handleDeleteStudent = (studentId: string) => {
-    if (window.confirm('Apakah Anda yakin ingin menghapus siswa ini?')) {
-      setClasses(prev => prev.map(c => 
-        c.id === activeClassId 
-          ? { ...c, students: c.students.filter(s => s.id !== studentId) } 
-          : c
-      ));
-      showToast('Siswa berhasil dihapus', 'info');
+    if (window.confirm('Hapus siswa ini?')) {
+      setClasses(prev => prev.map(c => c.id === activeClassId ? { ...c, students: c.students.filter(s => s.id !== studentId) } : c));
+      showToast('Siswa dihapus', 'info');
     }
   };
 
@@ -329,7 +312,7 @@ const App: React.FC = () => {
     return (
       <div className="min-h-screen login-bg flex items-center justify-center p-6">
         <div className="w-full max-w-md glass-panel p-10 rounded-[2.5rem] shadow-2xl space-y-8 text-center">
-          <div className="w-20 h-20 active-gradient rounded-3xl mx-auto flex items-center justify-center shadow-2xl mb-4">
+          <div className="w-20 h-20 active-gradient rounded-3xl mx-auto flex items-center justify-center mb-4">
             <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           </div>
           <h1 className="text-3xl font-black text-white uppercase tracking-tight">Portal Digital</h1>
@@ -338,6 +321,7 @@ const App: React.FC = () => {
             <input type="password" value={loginForm.pass} onChange={e => setLoginForm({...loginForm, pass: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Password" />
             <button type="submit" className="w-full active-gradient text-white font-black py-5 rounded-2xl uppercase tracking-widest">Masuk Sistem</button>
           </form>
+          <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{school.name} - {school.year}</p>
         </div>
       </div>
     );
@@ -345,7 +329,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200" onClick={() => setActiveMenuId(null)}>
-      {/* NOTIFICATIONS */}
       <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] space-y-3 w-full max-sm px-4">
         {notifications.map(n => (
           <div key={n.id} className="p-4 rounded-2xl shadow-2xl border backdrop-blur-md flex items-center gap-3 bg-indigo-950/90 border-indigo-500/30 text-indigo-100">
@@ -364,8 +347,8 @@ const App: React.FC = () => {
             <div>
               <h1 className="font-black text-white text-lg uppercase leading-none">{activeClass?.name || 'Sistem Sekolah'}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{schoolName}</p>
-                <div className={`w-2 h-2 rounded-full ${isCloudConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isCloudConfigured ? "Cloud Connected" : "Local Mode"}></div>
+                <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{school.name}</p>
+                <div className={`w-2 h-2 rounded-full ${isCloudConfigured ? 'bg-emerald-500 animate-pulse' : 'bg-slate-700'}`} title={isCloudConfigured ? "Connected" : "Local Mode"}></div>
               </div>
             </div>
           </div>
@@ -374,7 +357,6 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto p-6 space-y-8 pb-32">
-        {/* NAV & VIEW CONTROLS */}
         <div className="no-print space-y-6">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
             {classes.map(c => (
@@ -390,7 +372,7 @@ const App: React.FC = () => {
               { id: 'Assignments', label: 'Tugas & Nilai', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
               { id: 'Admin', label: 'Manajemen', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
             ].map((t) => (
-              <button key={t.id} onClick={() => setView(t.id as ViewType)} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest transition-all ${view === t.id ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>
+              <button key={t.id} onClick={() => setView(t.id as ViewType)} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest transition-all ${view === t.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-slate-600 hover:text-slate-400'}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={t.icon} /></svg>
                 <span className="mobile-hide">{t.label}</span>
               </button>
@@ -398,7 +380,6 @@ const App: React.FC = () => {
           </nav>
         </div>
 
-        {/* VIEWS */}
         <div className="view-transition">
           {view === 'Daily' && (
             <div className="space-y-6">
@@ -414,8 +395,8 @@ const App: React.FC = () => {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
                     Simpan
                   </button>
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
-                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || [1,2,3,4,5], 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'prev'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" /></svg></button>
+                  <button onClick={() => setCurrentDate(getNextTeachingDate(currentDate, activeClass?.schedule || defaults.teachingDays, 'next'))} className="p-3 bg-slate-900 border border-slate-800 rounded-xl"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7" /></svg></button>
                 </div>
               </div>
               <div className="space-y-3">
@@ -455,7 +436,7 @@ const App: React.FC = () => {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Unduh Excel
                    </button>
-                   <button onClick={() => window.print()} className="px-8 py-4 active-gradient text-white rounded-2xl font-black text-[11px] uppercase flex items-center gap-3">
+                   <button onClick={() => window.print()} className="px-8 py-4 active-gradient text-white rounded-2xl font-black text-[11px] uppercase flex items-center gap-3 shadow-2xl">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
                       Cetak Rekap
                    </button>
@@ -473,12 +454,12 @@ const App: React.FC = () => {
               {classSummary && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 no-print">
                    <div className="dark-card p-8 rounded-[2.5rem] bg-indigo-600/5 border-indigo-500/20">
-                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4">Rata-rata Kehadiran</p>
-                      <div className="flex items-end gap-2"><span className="text-5xl font-black text-white">{classSummary.avg}%</span></div>
+                      <p className="text-[9px] font-black text-indigo-400 uppercase tracking-widest mb-4">Efisiensi Kehadiran</p>
+                      <span className="text-5xl font-black text-white">{classSummary.avg}%</span>
                    </div>
                    <div className="dark-card p-8 rounded-[2.5rem] bg-emerald-600/5 border-emerald-500/20">
-                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-4">Siswa Terajin</p>
-                      <span className="text-lg font-black text-white block truncate">{classSummary.best}</span>
+                      <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-4">Siswa Teladan</p>
+                      <span className="text-lg font-black text-white block truncate uppercase">{classSummary.best}</span>
                    </div>
                    <div className="dark-card p-8 rounded-[2.5rem] bg-rose-600/5 border-rose-500/20">
                       <p className="text-[9px] font-black text-rose-400 uppercase tracking-widest mb-4">Ketidakhadiran</p>
@@ -491,9 +472,9 @@ const App: React.FC = () => {
                  <div className="p-12 border-b border-white/5 text-center bg-slate-900/40 print:p-6 print:border-black">
                     <h3 className="text-4xl font-black text-white uppercase tracking-tighter print:text-black print:text-2xl">Daftar Hadir Peserta Didik</h3>
                     <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-black text-slate-400 uppercase tracking-widest print:text-black mt-4">
-                       <span>Sekolah: <span className="text-white print:text-black font-extrabold">{schoolName}</span></span>
+                       <span>Sekolah: <span className="text-white print:text-black font-extrabold">{school.name}</span></span>
                        <span>Kelas: <span className="text-white print:text-black font-extrabold">{activeClass?.name || '-'}</span></span>
-                       <span>Periode: <span className="text-indigo-400 print:text-black font-extrabold">{reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : 'Semester 1 (Jan-Jun)'}</span></span>
+                       <span>Periode: <span className="text-indigo-400 print:text-black font-extrabold">{reportTab === 'Weekly' ? 'Mingguan' : reportTab === 'Monthly' ? MONTHS_2026[activeMonth].name : school.periodName}</span></span>
                     </div>
                  </div>
                  <div className="overflow-x-auto">
@@ -525,9 +506,8 @@ const App: React.FC = () => {
                               <td className="p-6 font-black text-white uppercase tracking-tight sticky left-12 bg-[#0f172a] group-hover:text-indigo-400 group-hover:bg-slate-800 transition-colors z-10 print:bg-white print:text-black">{s.name}</td>
                               {reportDates.map((d, i) => {
                                  const status = attendance[s.id]?.[formatDate(d)] || 'H';
-                                 const isFuture = isFutureDate(d);
                                  return (
-                                   <td key={i} className={`p-4 text-center border-l border-white/5 font-black text-xs print:border-black print:text-black ${isFuture ? 'opacity-20' : ''}`}>
+                                   <td key={i} className={`p-4 text-center border-l border-white/5 font-black text-xs print:border-black print:text-black ${isFutureDate(d) ? 'opacity-20' : ''}`}>
                                       <span className={status === 'H' ? 'text-emerald-500/40' : DARK_STATUS_COLORS[status].split(' ')[0]}>{status}</span>
                                    </td>
                                  );
@@ -611,7 +591,7 @@ const App: React.FC = () => {
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex items-center justify-between">
                       <h3 className="font-black text-white uppercase tracking-tighter text-xl">Manajemen Kelas</h3>
-                      <button onClick={() => { setEditingClass(null); setAdminFormData({ ...adminFormData, className: '', schedule: [1,2,3,4,5] }); setShowClassModal(true); }} className="px-6 py-3 active-gradient text-white rounded-xl font-black text-[10px] uppercase">Tambah Kelas</button>
+                      <button onClick={() => { setEditingClass(null); setAdminFormData({ ...adminFormData, className: '', schedule: defaults.teachingDays }); setShowClassModal(true); }} className="px-6 py-3 active-gradient text-white rounded-xl font-black text-[10px] uppercase">Tambah Kelas</button>
                    </div>
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {classes.map(c => (
@@ -619,12 +599,12 @@ const App: React.FC = () => {
                            <div>
                               <p className="font-black text-white uppercase text-sm">{c.name}</p>
                               <div className="flex flex-wrap gap-1 mt-2">
-                                {(c.schedule || [1,2,3,4,5]).map(d => (
+                                {(c.schedule || defaults.teachingDays).map(d => (
                                   <span key={d} className="px-2 py-1 bg-indigo-500/10 border border-indigo-500/20 rounded-lg text-[7px] font-black text-indigo-400 uppercase">{DAY_NAMES[d].slice(0,3)}</span>
                                 ))}
                               </div>
                            </div>
-                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || [1,2,3,4,5]}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl">
+                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl">
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5" /></svg>
                            </button>
                         </div>
@@ -668,24 +648,16 @@ const App: React.FC = () => {
                       </div>
                       <div>
                          <h3 className="text-xl font-black text-white uppercase">Status Supabase Cloud</h3>
-                         <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">{isCloudConfigured ? 'Tersambung Secara Aman' : 'Belum Dikonfigurasi (Mode Lokal)'}</p>
+                         <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase tracking-widest">{isCloudConfigured ? 'Sinkronisasi Aktif' : 'Mode Penyimpanan Lokal'}</p>
                       </div>
                    </div>
-                   <div className="space-y-4">
-                      <div className="p-6 bg-slate-950/50 border border-white/5 rounded-[2rem] space-y-4">
-                         <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                            <span className="text-slate-500">Auto Sync</span>
-                            <span className={isCloudConfigured ? "text-emerald-500" : "text-rose-500"}>{isCloudConfigured ? 'AKTIF' : 'NON-AKTIF'}</span>
-                         </div>
-                         <button 
-                           onClick={() => { pushToCloud(classes, attendance); showToast('Memaksa sinkronisasi...', 'info'); }}
-                           disabled={!isCloudConfigured || isSyncing}
-                           className={`w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isCloudConfigured ? 'active-gradient text-white shadow-xl' : 'bg-slate-900 text-slate-700'}`}
-                         >
-                            {isSyncing ? 'SINKRONISASI...' : 'SINKRONISASI SEKARANG'}
-                         </button>
-                      </div>
-                   </div>
+                   <button 
+                     onClick={() => { pushToCloud(classes, attendance); showToast('Memaksa sinkronisasi...', 'info'); }}
+                     disabled={!isCloudConfigured || isSyncing}
+                     className={`w-full py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${isCloudConfigured ? 'active-gradient text-white shadow-xl' : 'bg-slate-900 text-slate-700'}`}
+                   >
+                      {isSyncing ? 'SEDANG SINKRONISASI...' : 'SINKRONISASI SEKARANG'}
+                   </button>
                 </div>
               )}
             </div>
@@ -693,13 +665,13 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* MODALS */}
+      {/* MODALS SECTION */}
       {showGradingModal && activeAssignment && (
         <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
           <div className="dark-card w-full max-w-4xl p-8 rounded-[3.5rem] space-y-8 max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center">
                <h4 className="text-2xl font-black text-white uppercase">Penilaian: {activeAssignment.title}</h4>
-               <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6" /></svg></button>
+               <button onClick={() => setShowGradingModal(false)} className="p-3 bg-slate-900 border border-slate-800 rounded-2xl hover:bg-rose-600 hover:text-white transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6" /></svg></button>
             </div>
             <div className="flex-1 overflow-y-auto pr-2 space-y-4">
                {activeClass?.students.map((s, idx) => {
@@ -711,14 +683,14 @@ const App: React.FC = () => {
                          <p className={`font-black uppercase text-xs ${sub.isSubmitted ? 'text-emerald-400' : 'text-white'}`}>{s.name}</p>
                       </div>
                       <div className="flex items-center gap-6">
-                         <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-10 h-10 rounded-xl flex items-center justify-center border ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-slate-950 border-slate-800 text-transparent'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg></button>
+                         <button onClick={() => updateSubmission(activeAssignment.id, s.id, 'isSubmitted', !sub.isSubmitted)} className={`w-10 h-10 rounded-xl flex items-center justify-center border ${sub.isSubmitted ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg' : 'bg-slate-950 border-slate-800 text-transparent'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 13l4 4L19 7" /></svg></button>
                          <input type="text" value={sub.score} onChange={(e) => updateSubmission(activeAssignment.id, s.id, 'score', e.target.value)} placeholder="0" className="w-20 bg-slate-950 border border-slate-800 rounded-xl p-3 text-center text-sm font-black text-white outline-none" />
                       </div>
                    </div>
                  );
                })}
             </div>
-            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Disimpan!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase">Simpan Seluruh Nilai</button>
+            <button onClick={() => { setShowGradingModal(false); showToast('Penilaian Disimpan!'); }} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em]">Simpan Seluruh Nilai</button>
           </div>
         </div>
       )}
@@ -731,7 +703,7 @@ const App: React.FC = () => {
                 <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} type="text" placeholder="Nama Kelas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
                 <div className="grid grid-cols-5 gap-2">
                   {[1, 2, 3, 4, 5].map(d => (
-                    <button key={d} onClick={() => { setAdminFormData(prev => ({ ...prev, schedule: prev.schedule.includes(d) ? prev.schedule.filter(x => x !== d) : [...prev.schedule, d].sort() })); }} className={`py-4 rounded-2xl text-[10px] font-black uppercase transition-all border ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>{DAY_NAMES[d].slice(0,3)}</button>
+                    <button key={d} onClick={() => { setAdminFormData(prev => ({ ...prev, schedule: prev.schedule.includes(d) ? prev.schedule.filter(x => x !== d) : [...prev.schedule, d].sort() })); }} className={`py-4 rounded-2xl text-[10px] font-black uppercase border transition-all ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 border-transparent text-white' : 'bg-slate-950 border-slate-800 text-slate-600'}`}>{DAY_NAMES[d].slice(0,3)}</button>
                   ))}
                 </div>
             </div>
@@ -748,7 +720,7 @@ const App: React.FC = () => {
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">
             <h4 className="text-2xl font-black text-white uppercase text-center">{editingStudent ? 'Ubah Siswa' : 'Tambah Siswa'}</h4>
             <div className="space-y-6">
-                <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} type="text" placeholder="Nama Lengkap Siswa" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
+                <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} type="text" placeholder="Nama Lengkap" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none uppercase" />
                 <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} type="text" placeholder="NIS" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
             </div>
             <div className="flex gap-4">
@@ -764,12 +736,9 @@ const App: React.FC = () => {
           <div className="dark-card w-full max-w-md p-10 rounded-[3rem] space-y-8">
             <h4 className="text-2xl font-black text-white uppercase text-center">{editingAssignment ? 'Ubah Tugas' : 'Buat Tugas'}</h4>
             <div className="space-y-6">
-                <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Judul Tugas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
-                <textarea value={adminFormData.assignDesc} onChange={e => setAdminFormData({...adminFormData, assignDesc: e.target.value})} placeholder="Deskripsi Tugas (Opsional)" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none min-h-[100px]" />
-                <div className="space-y-2">
-                   <p className="text-[10px] font-black text-slate-500 uppercase px-2">Tenggat Waktu</p>
-                   <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
-                </div>
+                <input value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} type="text" placeholder="Judul Tugas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none uppercase" />
+                <textarea value={adminFormData.assignDesc} onChange={e => setAdminFormData({...adminFormData, assignDesc: e.target.value})} placeholder="Deskripsi Tugas" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none min-h-[100px]" />
+                <input value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} type="date" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-5 text-white font-bold outline-none" />
             </div>
             <div className="flex gap-4">
               <button onClick={() => setShowAssignmentModal(false)} className="flex-1 py-5 bg-slate-900 text-slate-400 font-black rounded-2xl uppercase">Batal</button>
