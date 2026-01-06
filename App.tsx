@@ -22,8 +22,6 @@ interface Notification {
 
 const MENU_ITEMS: { view: ViewType; label: string }[] = [
   { view: 'Admin', label: 'Admin' },
-  { view: 'Daily', label: 'Presensi' },
-  { view: 'Assignments', label: 'Tugas' },
   { view: 'Reports', label: 'Laporan Presensi' },
   { view: 'TaskReports', label: 'Rekap Tugas' },
 ];
@@ -149,6 +147,13 @@ const App: React.FC = () => {
   const [parsedStudents, setParsedStudents] = useState<ParsedStudent[]>([]);
   const [uploadFileName, setUploadFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeClassId) {
+      setExpandedClassId(activeClassId);
+    }
+  }, [activeClassId]);
 
   const [adminFormData, setAdminFormData] = useState({ 
     className: '', 
@@ -904,7 +909,25 @@ const App: React.FC = () => {
                   {label}
               </button>
           ))}</div>
-          <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kelas</h3>{classes.map(c => (<button key={c.id} onClick={() => { setActiveClassId(c.id); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>{c.name}</button>))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
+          <div className="pt-4 space-y-1"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kelas</h3>{classes.map(c => (
+            <div key={c.id}>
+              <button onClick={() => setExpandedClassId(prevId => prevId === c.id ? null : c.id)} className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium flex justify-between items-center ${activeClassId === c.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                <span className="truncate">{c.name}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ expandedClassId === c.id ? 'rotate-90' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
+              </button>
+              {expandedClassId === c.id && (
+                <div className="pl-4 pt-1 space-y-1">
+                  <button onClick={() => { setActiveClassId(c.id); setView('Daily'); setIsSidebarOpen(false); }} className={`w-full text-left pl-8 pr-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id && view === 'Daily' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                    Presensi
+                  </button>
+                   <button onClick={() => { setActiveClassId(c.id); setView('Assignments'); setIsSidebarOpen(false); }} className={`w-full text-left pl-8 pr-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id && view === 'Assignments' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                    Tugas
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            ))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
         </div>
         <div className="mt-auto pt-4">
           <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
