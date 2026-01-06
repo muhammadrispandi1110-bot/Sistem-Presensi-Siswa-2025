@@ -106,30 +106,23 @@ const App: React.FC = () => {
   const [activeClassId, setActiveClassId] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>('Daily');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
-  const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
+  const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
   const [activeMonth, setActiveMonth] = useState(defaults.startMonth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   
   const [showClassModal, setShowClassModal] = useState(false);
   const [showStudentModal, setShowStudentModal] = useState(false);
-  const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   
   const [editingClass, setEditingClass] = useState<ClassData | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
-  
-  const [adminSelectedClassId, setAdminSelectedClassId] = useState<string | null>(null);
   
   const [adminFormData, setAdminFormData] = useState({ 
     className: '', 
-    schedule: defaults.teachingDays,
     studentName: '', 
     studentNis: '',
     studentNisn: '',
-    assignmentTitle: '',
-    assignmentDesc: '',
-    assignmentDueDate: '',
+    schedule: defaults.teachingDays
   });
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -150,13 +143,13 @@ const App: React.FC = () => {
     
     setIsLoading(true);
     try {
-      const { data: classesData, error: classesError } = await supabase.from('classes').select('*').order('name');
+      const { data: classesData, error: classesError } = await supabase.from('classes').select('*').order('created_at');
       if (classesError) throw classesError;
 
       const { data: studentsData, error: studentsError } = await supabase.from('students').select('*');
       if (studentsError) throw studentsError;
 
-      const { data: assignmentsData, error: assignmentsError } = await supabase.from('assignments').select('*').order('due_date');
+      const { data: assignmentsData, error: assignmentsError } = await supabase.from('assignments').select('*');
       if (assignmentsError) throw assignmentsError;
       
       const { data: submissionsData, error: submissionsError } = await supabase.from('submissions').select('*');
@@ -170,12 +163,8 @@ const App: React.FC = () => {
         const classAssignments = assignmentsData.filter(a => a.class_id === c.id).map(a => {
             const assignmentSubmissions = submissionsData.filter(sub => sub.assignment_id === a.id);
             const submissionsMap: { [studentId: string]: SubmissionData } = {};
-            classStudents.forEach(student => {
-              const submission = assignmentSubmissions.find(s => s.student_id === student.id);
-              submissionsMap[student.id] = { 
-                isSubmitted: submission?.is_submitted || false, 
-                score: submission?.score || '' 
-              };
+            assignmentSubmissions.forEach(sub => {
+                submissionsMap[sub.student_id] = { isSubmitted: sub.is_submitted, score: sub.score };
             });
             return { ...a, description: a.description || '', dueDate: a.due_date, submissions: submissionsMap };
         });
@@ -193,12 +182,10 @@ const App: React.FC = () => {
       setClasses(assembledClasses);
       setAttendance(reconstructedAttendance);
       
-      if (assembledClasses.length > 0) {
-        if (!activeClassId) setActiveClassId(assembledClasses[0].id);
-        if (!adminSelectedClassId) setAdminSelectedClassId(assembledClasses[0].id)
-      } else {
+      if (assembledClasses.length > 0 && !activeClassId) {
+        setActiveClassId(assembledClasses[0].id);
+      } else if(assembledClasses.length === 0){
         setActiveClassId(null);
-        setAdminSelectedClassId(null);
       }
       
     } catch (err: any) {
@@ -208,7 +195,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [supabase, activeClassId, adminSelectedClassId, database.url, database.anonKey, showToast]);
+  }, [supabase, activeClassId, database.url, database.anonKey, showToast]);
 
   useEffect(() => {
     // Simulasi loading awal yang lebih baik
@@ -310,7 +297,7 @@ const App: React.FC = () => {
     <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
         <h2 className="text-2xl font-bold text-white mb-6">Manajemen & Pengaturan</h2>
         <div className="flex border-b border-slate-700 mb-6">
-            {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
+            {(['Kelas', 'Siswa', 'Database'] as const).map(tab => (
                 <button key={tab} onClick={() => setAdminTab(tab)} className={`px-4 py-2 font-semibold text-sm ${adminTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>
                     {tab}
                 </button>
@@ -426,92 +413,6 @@ const App: React.FC = () => {
         </div>
     )
   }
-
-  const AssignmentsView = () => {
-    if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat tugas.</div>;
-  
-    const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
-      if(!supabase) return;
-
-      const currentSubmissions = activeClass.assignments?.find(a => a.id === assignmentId)?.submissions || {};
-      const newScore = isSubmitted ? (currentSubmissions[studentId]?.score || '100') : '';
-
-      setIsSyncing(true);
-      const { error } = await supabase.from('submissions').upsert({
-        assignment_id: assignmentId,
-        student_id: studentId,
-        is_submitted: isSubmitted,
-        score: newScore,
-        submitted_at: isSubmitted ? new Date().toISOString() : null,
-      }, { onConflict: 'assignment_id, student_id' });
-      
-      if (error) {
-        showToast('Gagal menyimpan status tugas', 'error');
-        console.error(error);
-      } else {
-        showToast('Status tugas diperbarui', 'success');
-        fetchFromCloud(); // Refresh data to show changes
-      }
-      setIsSyncing(false);
-    };
-
-    return (
-        <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
-            <h2 className="text-2xl font-bold text-white mb-1">Daftar Tugas</h2>
-            <p className="text-slate-400 mb-6">Status pengumpulan tugas untuk kelas {activeClass.name}</p>
-
-            {activeClass.assignments && activeClass.assignments.length > 0 ? (
-                <div className="space-y-8">
-                {activeClass.assignments.map(assignment => (
-                    <div key={assignment.id} className="dark-card rounded-xl p-4 sm:p-6">
-                        <div className="border-b border-slate-700 pb-4 mb-4">
-                            <h3 className="text-lg font-semibold text-white">{assignment.title}</h3>
-                            <p className="text-sm text-slate-400">Batas Waktu: {new Date(assignment.dueDate).toLocaleDateString('id-ID')}</p>
-                            {assignment.description && <p className="text-sm text-slate-300 mt-2">{assignment.description}</p>}
-                        </div>
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full">
-                                <thead>
-                                    <tr>
-                                        <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th>
-                                        <th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th>
-                                        <th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {activeClass.students.map((student, idx) => {
-                                        const submission = assignment.submissions[student.id];
-                                        const isSubmitted = submission?.isSubmitted || false;
-                                        return (
-                                            <tr key={student.id} className="border-t border-slate-800">
-                                                <td className="py-3 pr-4 text-slate-400 text-sm">{idx + 1}.</td>
-                                                <td className="py-3 px-4 text-slate-200 font-medium text-sm">{student.name}</td>
-                                                <td className="py-3 px-4 text-center">
-                                                    <button 
-                                                      onClick={() => handleSubmissionToggle(assignment.id, student.id, !isSubmitted)}
-                                                      className={`px-3 py-1 rounded-full text-xs font-bold ${isSubmitted ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}
-                                                    >
-                                                      {isSubmitted ? 'Terkumpul' : 'Belum'}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        )
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                ))}
-                </div>
-            ) : (
-                <div className="text-center text-slate-500 py-10">
-                    <p>Belum ada tugas untuk kelas ini.</p>
-                    <p className="text-sm">Silakan tambahkan tugas melalui menu Admin.</p>
-                </div>
-            )}
-        </div>
-    );
-};
   
   const ReportsView = () => {
     if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat laporan.</div>;
@@ -707,8 +608,8 @@ const App: React.FC = () => {
 
         {view === 'Daily' && <DailyView />}
         {view === 'Reports' && <ReportsView />}
-        {view === 'Assignments' && <AssignmentsView />}
         {view === 'Admin' && <AdminView />}
+        {/* Other views to be placed here */}
       </main>
       
       <NotificationArea />
