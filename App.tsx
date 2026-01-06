@@ -601,11 +601,30 @@ const App: React.FC = () => {
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full">
-                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Status</th></tr></thead>
+                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Terkumpul</th></tr></thead>
                                 <tbody>
                                     {activeClass.students.map((s, idx) => {
                                         const sub = a.submissions[s.id]; const isSub = sub?.isSubmitted || false;
-                                        return (<tr key={s.id} className="border-t border-slate-800"><td className="py-3 pr-4 text-slate-400 text-sm">{idx + 1}.</td><td className="py-3 px-4 text-slate-200 font-medium text-sm">{s.name}</td><td className="py-3 px-4 text-center"><button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`px-3 py-1 rounded-full text-xs font-bold ${isSub ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>{isSub ? 'Terkumpul' : 'Belum'}</button></td></tr>)
+                                        return (
+                                          <tr key={s.id} className="border-t border-slate-800">
+                                            <td className="py-3 pr-4 text-slate-400 text-sm">{idx + 1}.</td>
+                                            <td className="py-3 px-4 text-slate-200 font-medium text-sm">{s.name}</td>
+                                            <td className="py-3 px-4 text-center">
+                                                <button 
+                                                    onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} 
+                                                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500 ${isSub ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-700 text-transparent hover:bg-slate-600 border border-slate-500'}`}
+                                                    aria-label={`Tandai tugas ${s.name} sebagai ${isSub ? 'belum terkumpul' : 'terkumpul'}`}
+                                                    aria-checked={isSub}
+                                                    role="checkbox"
+                                                >
+                                                    {isSub && (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                            </td>
+                                          </tr>)
                                     })}
                                 </tbody>
                             </table>
