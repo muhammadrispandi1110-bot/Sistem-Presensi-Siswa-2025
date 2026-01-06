@@ -403,11 +403,64 @@ const App: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
-  
+
+  // FIX: Moved date calculations before their usage in `handleExportAttendanceToExcel` to resolve declaration errors.
   const weeklyDates = useMemo(() => getWeekDates(currentDate, activeClass?.schedule), [currentDate, activeClass]);
   const monthlyDates = useMemo(() => getMonthDates(activeMonth, activeClass?.schedule), [activeMonth, activeClass]);
   const semesterDates = useMemo(() => getSemesterDates(activeClass?.schedule), [activeClass]);
 
+  const handleExportAttendanceToExcel = useCallback(() => {
+    if (!activeClass) return;
+
+    const dates = reportTab === 'Daily' ? [currentDate] :
+                  reportTab === 'Weekly' ? weeklyDates :
+                  reportTab === 'Monthly' ? monthlyDates :
+                  semesterDates;
+                  
+    const dateHeaders = dates.map(d => `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`);
+    const headers = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A"];
+    
+    const data = activeClass.students.map((student, index) => {
+      const totals = { 'H': 0, 'S': 0, 'I': 0, 'A': 0 };
+      const statusRow = dates.map(d => {
+        const status = attendance[student.id]?.[formatDate(d)] || 'H';
+        totals[status]++;
+        return status;
+      });
+      return [index + 1, student.name, ...statusRow, totals.H, totals.S, totals.I, totals.A];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Presensi");
+    
+    const reportTypeName = reportTab === 'Daily' ? `Harian_${formatDate(currentDate)}` :
+                           reportTab === 'Weekly' ? `Mingguan_${formatDate(weeklyDates[0])}` :
+                           reportTab === 'Monthly' ? `Bulanan_${MONTHS_2026[activeMonth].name}` : 'Semester';
+    
+    const fileName = `Laporan_Presensi_${activeClass.name.replace(/ /g, '_')}_${reportTypeName}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [activeClass, attendance, reportTab, currentDate, weeklyDates, monthlyDates, semesterDates, activeMonth]);
+
+  const handleExportTasksToExcel = useCallback(() => {
+    if (!activeClass || !activeClass.assignments || activeClass.assignments.length === 0) return;
+
+    const assignments = activeClass.assignments;
+    const headers = ["No", "Nama Siswa", ...assignments.map(a => a.title)];
+    
+    const data = activeClass.students.map((student, index) => {
+      const scores = assignments.map(a => a.submissions[student.id]?.score || '-');
+      return [index + 1, student.name, ...scores];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Nilai Tugas");
+    
+    const fileName = `Rekap_Tugas_${activeClass.name.replace(/ /g, '_')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  }, [activeClass]);
+  
   // UI Render Components
   const AdminView = () => {
     const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
@@ -705,7 +758,10 @@ const App: React.FC = () => {
       <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
           <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Laporan Kehadiran</h2><p className="text-slate-500 dark:text-slate-400">Rekapitulasi Presensi {activeClass.name}</p></div>
-          <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>Print Laporan</button>
+          <div className="flex gap-2">
+            <button onClick={handleExportAttendanceToExcel} className="flex items-center gap-2 rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>Unduh Excel</button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>Print Laporan</button>
+          </div>
         </div>
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-4 print-hide">
           <div className="flex">
@@ -756,10 +812,13 @@ const App: React.FC = () => {
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rekapitulasi Nilai Tugas</h2>
             <p className="text-slate-500 dark:text-slate-400">Laporan Nilai untuk Kelas {activeClass.name}</p>
           </div>
-          <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
-            Print Rekap
-          </button>
+          <div className="flex gap-2">
+            <button onClick={handleExportTasksToExcel} className="flex items-center gap-2 rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>Unduh Excel</button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
+              Print Rekap
+            </button>
+          </div>
         </div>
         
         <div className="hidden print-header text-center my-4">
