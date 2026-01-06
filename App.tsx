@@ -148,12 +148,21 @@ const App: React.FC = () => {
   const [uploadFileName, setUploadFileName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedClassId, setExpandedClassId] = useState<string | null>(null);
+  
+  const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (activeClassId) {
       setExpandedClassId(activeClassId);
     }
   }, [activeClassId]);
+
+  useEffect(() => {
+    setSelectedStudentIds([]);
+    setSelectedAssignmentIds([]);
+  }, [adminSelectedClassId]);
 
   const [adminFormData, setAdminFormData] = useState({ 
     className: '', 
@@ -345,6 +354,31 @@ const App: React.FC = () => {
     }
   };
   
+  const handleBulkDelete = async (type: 'class' | 'student' | 'assignment') => {
+    const selectedIds = type === 'class' ? selectedClassIds : type === 'student' ? selectedStudentIds : selectedAssignmentIds;
+    if (selectedIds.length === 0 || !supabase) return;
+
+    if (!window.confirm(`Apakah Anda yakin ingin menghapus ${selectedIds.length} item terpilih? Tindakan ini tidak dapat dibatalkan.`)) return;
+
+    setIsSyncing(true);
+    try {
+      const fromTable = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
+      const { error } = await supabase.from(fromTable).delete().in('id', selectedIds);
+      if (error) throw error;
+      
+      showToast(`${selectedIds.length} item berhasil dihapus.`, 'success');
+      if (type === 'class') setSelectedClassIds([]);
+      if (type === 'student') setSelectedStudentIds([]);
+      if (type === 'assignment') setSelectedAssignmentIds([]);
+
+      await fetchFromCloud();
+    } catch (err: any) {
+      showToast(`Gagal menghapus: ${err.message}`, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+  
   const handleFileParse = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -485,7 +519,30 @@ const App: React.FC = () => {
   // UI Render Components
   const AdminView = () => {
     const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
-    
+    const checkboxRef = useRef<HTMLInputElement>(null);
+
+    const handleSelectAll = (type: 'class' | 'student' | 'assignment') => {
+        if (type === 'class') {
+            if (selectedClassIds.length === classes.length) setSelectedClassIds([]);
+            else setSelectedClassIds(classes.map(c => c.id));
+        } else if (type === 'student') {
+            if (!adminSelectedClass) return;
+            if (selectedStudentIds.length === adminSelectedClass.students.length) setSelectedStudentIds([]);
+            else setSelectedStudentIds(adminSelectedClass.students.map(s => s.id));
+        } else if (type === 'assignment') {
+            if (!adminSelectedClass?.assignments) return;
+            if (selectedAssignmentIds.length === adminSelectedClass.assignments.length) setSelectedAssignmentIds([]);
+            else setSelectedAssignmentIds(adminSelectedClass.assignments.map(a => a.id));
+        }
+    };
+
+    const handleSelectOne = (type: 'class' | 'student' | 'assignment', id: string) => {
+        const updater = (prev: string[]) => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
+        if (type === 'class') setSelectedClassIds(updater);
+        else if (type === 'student') setSelectedStudentIds(updater);
+        else if (type === 'assignment') setSelectedAssignmentIds(updater);
+    };
+
     return (
     <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
         <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Manajemen & Pengaturan</h2>
@@ -501,12 +558,22 @@ const App: React.FC = () => {
             <div>
                  <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Daftar Kelas</h3>
-                    <button onClick={() => openModal('class')} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Tambah Kelas</button>
+                    <div className="flex items-center gap-2">
+                        {selectedClassIds.length > 0 && ( <button onClick={() => handleBulkDelete('class')} className="flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500">Hapus Terpilih ({selectedClassIds.length})</button> )}
+                        <button onClick={() => openModal('class')} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Tambah Kelas</button>
+                    </div>
                 </div>
                 <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                      <table className="min-w-full">
                         <thead className="border-b border-slate-200 dark:border-slate-700">
                            <tr>
+                                <th className="py-2 px-3 w-10">
+                                    <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent"
+                                        checked={selectedClassIds.length === classes.length && classes.length > 0}
+                                        ref={el => { if (el) el.indeterminate = selectedClassIds.length > 0 && selectedClassIds.length < classes.length }}
+                                        onChange={() => handleSelectAll('class')}
+                                    />
+                                </th>
                                 <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Kelas</th>
                                 <th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Jadwal (Hari)</th>
                                 <th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th>
@@ -515,6 +582,9 @@ const App: React.FC = () => {
                         <tbody>
                             {classes.map(c => (
                             <tr key={c.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 px-3">
+                                    <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent" checked={selectedClassIds.includes(c.id)} onChange={() => handleSelectOne('class', c.id)} />
+                                </td>
                                 <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{c.name}</td>
                                 <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{c.schedule?.map(d => DAY_NAMES[d].slice(0,3)).join(', ') || 'N/A'}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
@@ -540,6 +610,7 @@ const App: React.FC = () => {
                         </select>
                     </div>
                     <div className="self-end flex gap-2">
+                        {selectedStudentIds.length > 0 && (<button onClick={() => handleBulkDelete('student')} className="flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500">Hapus Terpilih ({selectedStudentIds.length})</button> )}
                        <button onClick={() => openModal('student')} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
                           Tambah Siswa
                         </button>
@@ -550,10 +621,20 @@ const App: React.FC = () => {
                 </div>
                 <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <table className="min-w-full">
-                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
+                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr>
+                            <th className="py-2 px-3 w-10">
+                                <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent" disabled={!adminSelectedClass || adminSelectedClass.students.length === 0}
+                                    checked={adminSelectedClass ? selectedStudentIds.length === adminSelectedClass.students.length && adminSelectedClass.students.length > 0 : false}
+                                    ref={el => { if (el && adminSelectedClass) el.indeterminate = selectedStudentIds.length > 0 && selectedStudentIds.length < adminSelectedClass.students.length }}
+                                    onChange={() => handleSelectAll('student')} />
+                            </th>
+                            <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
                         <tbody>
                             {adminSelectedClass?.students.map(s => (
                             <tr key={s.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 px-3">
+                                    <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent" checked={selectedStudentIds.includes(s.id)} onChange={() => handleSelectOne('student', s.id)} />
+                                </td>
                                 <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{s.name}</td>
                                 <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{s.nis}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
@@ -578,7 +659,8 @@ const App: React.FC = () => {
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <div className="self-end">
+                    <div className="self-end flex items-center gap-2">
+                       {selectedAssignmentIds.length > 0 && (<button onClick={() => handleBulkDelete('assignment')} className="flex items-center gap-2 rounded-md bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-500">Hapus Terpilih ({selectedAssignmentIds.length})</button> )}
                        <button onClick={() => openModal('assignment')} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
                           Tambah Tugas
                         </button>
@@ -586,10 +668,20 @@ const App: React.FC = () => {
                 </div>
                 <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <table className="min-w-full">
-                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
+                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr>
+                            <th className="py-2 px-3 w-10">
+                                <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent" disabled={!adminSelectedClass || !adminSelectedClass.assignments || adminSelectedClass.assignments.length === 0}
+                                    checked={adminSelectedClass?.assignments ? selectedAssignmentIds.length === adminSelectedClass.assignments.length && adminSelectedClass.assignments.length > 0 : false}
+                                    ref={el => { if (el && adminSelectedClass?.assignments) el.indeterminate = selectedAssignmentIds.length > 0 && selectedAssignmentIds.length < adminSelectedClass.assignments.length }}
+                                    onChange={() => handleSelectAll('assignment')} />
+                            </th>
+                            <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
                         <tbody>
                             {adminSelectedClass?.assignments?.map(a => (
                             <tr key={a.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 px-3">
+                                    <input type="checkbox" className="rounded border-slate-400 dark:border-slate-600 bg-transparent" checked={selectedAssignmentIds.includes(a.id)} onChange={() => handleSelectOne('assignment', a.id)} />
+                                </td>
                                 <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{a.title}</td>
                                 <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
