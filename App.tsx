@@ -263,21 +263,45 @@ const App: React.FC = () => {
     setShowClassModal(false);
     setEditingClass(null);
   };
+  
+  const handleDeleteClass = (classId: string) => {
+    const classToDelete = classes.find(c => c.id === classId);
+    if (!classToDelete) return;
+
+    if (window.confirm(`Anda yakin ingin menghapus kelas "${classToDelete.name}"? Semua data siswa dan absensi di kelas ini akan hilang selamanya.`)) {
+        const studentIdsToDelete = classToDelete.students.map(s => s.id);
+        const updatedClasses = classes.filter(c => c.id !== classId);
+        setClasses(updatedClasses);
+
+        setAttendance(prev => {
+            const newAttendance = { ...prev };
+            studentIdsToDelete.forEach(studentId => { delete newAttendance[studentId]; });
+            return newAttendance;
+        });
+
+        if (activeClassId === classId) {
+            setActiveClassId(updatedClasses[0]?.id || '');
+        }
+        showToast('Kelas berhasil dihapus', 'info');
+    }
+  };
 
   const handleAddOrEditStudent = () => {
     if (!activeClassId || !adminFormData.studentName) return;
     if (editingStudent) {
       setClasses(classes.map(c => c.id === activeClassId ? { ...c, students: c.students.map(s => s.id === editingStudent.id ? { ...s, name: adminFormData.studentName, nis: adminFormData.studentNis } : s) } : c));
+      showToast('Data siswa diperbarui');
     } else {
       const newS = { id: `std-${Date.now()}`, name: adminFormData.studentName, nis: adminFormData.studentNis, nisn: '' };
       setClasses(classes.map(c => c.id === activeClassId ? { ...c, students: [...c.students, newS] } : c));
+      showToast('Siswa baru ditambahkan');
     }
     setShowStudentModal(false);
     setEditingStudent(null);
   };
 
   const handleDeleteStudent = (studentId: string) => {
-    if (window.confirm('Hapus siswa ini?')) {
+    if (window.confirm('Hapus siswa ini? Tindakan ini tidak dapat dibatalkan.')) {
       setClasses(prev => prev.map(c => c.id === activeClassId ? { ...c, students: c.students.filter(s => s.id !== studentId) } : c));
       showToast('Siswa dihapus', 'info');
     }
@@ -319,7 +343,7 @@ const App: React.FC = () => {
   };
 
   const handleDeleteAssignment = (id: string) => {
-    if (window.confirm('Hapus tugas ini?')) {
+    if (window.confirm('Hapus tugas ini? Semua data nilai akan hilang.')) {
       setClasses(prev => prev.map(c => c.id === activeClassId ? { ...c, assignments: (c.assignments || []).filter(a => a.id !== id) } : c));
       showToast('Tugas dihapus.', 'info');
       setActiveMenuId(null);
@@ -400,7 +424,7 @@ const App: React.FC = () => {
               { id: 'Daily', label: 'Presensi', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
               { id: 'Reports', label: 'Rekapitulasi', icon: 'M9 17v-2m3 2v-4m3 2v-6m-8-2h8a2 2 0 012 2v8a2 2 0 01-2 2H7a2 2 0 01-2-2V9a2 2 0 012-2z' },
               { id: 'Assignments', label: 'Tugas & Nilai', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
-              { id: 'Admin', label: 'Manajemen', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
+              { id: 'Admin', label: 'Manajemen', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' }
             ].map((t) => (
               <button key={t.id} onClick={() => setView(t.id as ViewType)} className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-[1.8rem] font-black text-[10px] uppercase tracking-widest transition-all ${view === t.id ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-500/20' : 'text-slate-600 hover:text-slate-400'}`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d={t.icon} /></svg>
@@ -624,10 +648,16 @@ const App: React.FC = () => {
                         <div key={c.id} className="p-6 bg-slate-950/50 border border-slate-800 rounded-[2.5rem] flex items-center justify-between group transition-all hover:border-indigo-500/50">
                            <div>
                               <p className="font-black text-white uppercase text-sm group-hover:text-indigo-400 transition-colors">{c.name}</p>
+                              <p className="text-[9px] font-bold text-slate-600">{c.students.length} Siswa</p>
                            </div>
-                           <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-4 bg-slate-900 border border-slate-800 text-slate-500 rounded-2xl hover:text-white transition-colors">
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-5" /></svg>
-                           </button>
+                           <div className="flex items-center gap-2">
+                               <button onClick={() => { setEditingClass(c); setAdminFormData({...adminFormData, className: c.name, schedule: c.schedule || defaults.teachingDays}); setShowClassModal(true); }} className="p-3 bg-slate-900 border border-slate-800 text-slate-500 rounded-xl hover:text-white transition-colors">
+                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z" /></svg>
+                               </button>
+                               <button onClick={() => handleDeleteClass(c.id)} className="p-3 bg-slate-900 border border-slate-800 text-rose-500 rounded-xl hover:bg-rose-600 hover:text-white transition-colors">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                               </button>
+                           </div>
                         </div>
                       ))}
                    </div>
@@ -650,8 +680,15 @@ const App: React.FC = () => {
                             <tr key={s.id} className="hover:bg-white/5">
                               <td className="p-4 font-black text-white uppercase">{s.name}</td>
                               <td className="p-4 text-slate-400">{s.nis}</td>
-                              <td className="p-4 text-center">
-                                <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:text-rose-400 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7" /></svg></button>
+                              <td className="p-4">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button onClick={() => { setEditingStudent(s); setAdminFormData({ ...adminFormData, studentName: s.name, studentNis: s.nis }); setShowStudentModal(true); }} className="p-2 text-indigo-500 hover:text-indigo-400 transition-colors">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L14.732 3.732z" /></svg>
+                                  </button>
+                                  <button onClick={() => handleDeleteStudent(s.id)} className="p-2 text-rose-500 hover:text-rose-400 transition-colors">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))}
@@ -693,8 +730,56 @@ const App: React.FC = () => {
       </main>
 
       {/* MODALS */}
+      {showClassModal && (
+          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={() => setShowClassModal(false)}>
+            <div className="dark-card w-full max-w-lg p-8 rounded-[3.5rem] space-y-8" onClick={e => e.stopPropagation()}>
+                <h4 className="text-2xl font-black text-white uppercase">{editingClass ? 'Edit Data Kelas' : 'Tambah Kelas Baru'}</h4>
+                <div className="space-y-4">
+                  <input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Nama Kelas (Contoh: X.10)" />
+                  <div>
+                     <p className="text-sm font-bold text-slate-400 mb-2">Hari Mengajar</p>
+                     <div className="flex gap-2">
+                        {DAY_NAMES.slice(1,6).map((day, idx) => (
+                           <button key={idx} onClick={() => {
+                              const dayIndex = idx + 1;
+                              const newSchedule = adminFormData.schedule.includes(dayIndex) ? adminFormData.schedule.filter(d => d !== dayIndex) : [...adminFormData.schedule, dayIndex];
+                              setAdminFormData({...adminFormData, schedule: newSchedule });
+                           }} className={`flex-1 py-3 rounded-xl text-xs font-black transition-colors ${adminFormData.schedule.includes(idx+1) ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}>{day}</button>
+                        ))}
+                     </div>
+                  </div>
+                </div>
+                <button onClick={handleAddOrEditClass} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em] transition-transform active:scale-95">{editingClass ? 'Simpan Perubahan' : 'Tambahkan Kelas'}</button>
+            </div>
+          </div>
+      )}
+      {showStudentModal && (
+          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={() => setShowStudentModal(false)}>
+            <div className="dark-card w-full max-w-lg p-8 rounded-[3.5rem] space-y-8" onClick={e => e.stopPropagation()}>
+                <h4 className="text-2xl font-black text-white uppercase">{editingStudent ? 'Edit Data Siswa' : 'Tambah Siswa Baru'}</h4>
+                <div className="space-y-4">
+                  <input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Nama Lengkap Siswa" />
+                  <input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Nomor Induk Siswa (NIS)" />
+                </div>
+                <button onClick={handleAddOrEditStudent} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em] transition-transform active:scale-95">{editingStudent ? 'Simpan Perubahan' : 'Tambahkan Siswa'}</button>
+            </div>
+          </div>
+      )}
+      {showAssignmentModal && (
+          <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={() => setShowAssignmentModal(false)}>
+            <div className="dark-card w-full max-w-lg p-8 rounded-[3.5rem] space-y-8" onClick={e => e.stopPropagation()}>
+                <h4 className="text-2xl font-black text-white uppercase">{editingAssignment ? 'Edit Tugas' : 'Buat Tugas Baru'}</h4>
+                <div className="space-y-4">
+                  <input type="text" value={adminFormData.assignTitle} onChange={e => setAdminFormData({...adminFormData, assignTitle: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Judul Tugas" />
+                  <textarea value={adminFormData.assignDesc} onChange={e => setAdminFormData({...adminFormData, assignDesc: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" placeholder="Deskripsi (Opsional)" rows={3}></textarea>
+                  <input type="date" value={adminFormData.assignDue} onChange={e => setAdminFormData({...adminFormData, assignDue: e.target.value})} className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-5 text-white outline-none focus:border-indigo-500 font-bold" />
+                </div>
+                <button onClick={handleAddOrEditAssignment} className="w-full py-5 active-gradient text-white font-black rounded-[2rem] uppercase tracking-[0.2em] transition-transform active:scale-95">{editingAssignment ? 'Simpan Perubahan' : 'Buat Tugas'}</button>
+            </div>
+          </div>
+      )}
       {showGradingModal && activeAssignment && (
-        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[110] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6" onClick={() => setShowGradingModal(false)}>
           <div className="dark-card w-full max-w-4xl p-8 rounded-[3.5rem] space-y-8 max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center">
                <h4 className="text-2xl font-black text-white uppercase">Penilaian: {activeAssignment.title}</h4>
