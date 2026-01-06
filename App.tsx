@@ -31,7 +31,7 @@ interface Notification {
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   
@@ -48,11 +48,10 @@ const App: React.FC = () => {
     return null;
   }, [database.url, database.anonKey]);
 
-  // Gunakan INITIAL_CLASSES sebagai default agar UI tidak kosong saat loading/error
-  const [classes, setClasses] = useState<ClassData[]>(INITIAL_CLASSES);
+  const [classes, setClasses] = useState<ClassData[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
 
-  const [activeClassId, setActiveClassId] = useState(INITIAL_CLASSES[0]?.id || '');
+  const [activeClassId, setActiveClassId] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>('Daily');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Database'>('Kelas');
@@ -87,83 +86,81 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 3000);
   }, []);
 
-  const pushToCloud = async (currentClasses: ClassData[], currentAttendance: AttendanceRecord) => {
-    if (!supabase || !isAuthenticated || currentClasses.length === 0) return;
-    setIsSyncing(true);
-    try {
-      const { error } = await supabase
-        .from('app_storage')
-        .upsert({ 
-          id: database.storageId, 
-          classes: currentClasses, 
-          attendance: currentAttendance,
-          updated_at: new Date()
-        });
-      if (error) throw error;
-      setLastSync(new Date().toLocaleTimeString());
-    } catch (err: any) {
-      console.error('Auto-Sync Error:', err);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
-  const fetchFromCloud = async () => {
+  const fetchFromCloud = useCallback(async () => {
     if (!supabase) {
-      showToast('Berjalan tanpa Cloud (Local Only)', 'info');
+      showToast('Gagal terhubung ke Cloud', 'error');
+      setClasses(INITIAL_CLASSES);
+      setIsLoading(false);
       return;
     }
     
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('app_storage')
-        .select('*')
-        .eq('id', database.storageId)
-        .single();
-      
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Data belum ada di tabel, inisialisasi awal
-          await pushToCloud(INITIAL_CLASSES, {});
-        } else {
-          throw error;
-        }
-      }
+      // 1. Ambil semua data dari setiap tabel
+      const { data: classesData, error: classesError } = await supabase.from('classes').select('*').order('created_at');
+      if (classesError) throw classesError;
 
-      if (data) {
-        setClasses(data.classes || INITIAL_CLASSES);
-        setAttendance(data.attendance || {});
-        if (data.classes && data.classes.length > 0) {
-          setActiveClassId(data.classes[0].id);
+      const { data: studentsData, error: studentsError } = await supabase.from('students').select('*');
+      if (studentsError) throw studentsError;
+
+      const { data: assignmentsData, error: assignmentsError } = await supabase.from('assignments').select('*');
+      if (assignmentsError) throw assignmentsError;
+      
+      const { data: submissionsData, error: submissionsError } = await supabase.from('submissions').select('*');
+      if (submissionsError) throw submissionsError;
+      
+      const { data: attendanceData, error: attendanceError } = await supabase.from('attendance_records').select('*');
+      if (attendanceError) throw attendanceError;
+
+      // 2. Susun data menjadi struktur yang dibutuhkan UI
+      const assembledClasses = classesData.map(c => {
+        const classStudents = studentsData.filter(s => s.class_id === c.id);
+        const classAssignments = assignmentsData.filter(a => a.class_id === c.id).map(a => {
+            const assignmentSubmissions = submissionsData.filter(sub => sub.assignment_id === a.id);
+            const submissionsMap: { [studentId: string]: SubmissionData } = {};
+            assignmentSubmissions.forEach(sub => {
+                submissionsMap[sub.student_id] = { isSubmitted: sub.is_submitted, score: sub.score };
+            });
+            return { ...a, description: a.description || '', dueDate: a.due_date, submissions: submissionsMap };
+        });
+        return { ...c, students: classStudents, assignments: classAssignments };
+      });
+
+      const reconstructedAttendance: AttendanceRecord = {};
+      attendanceData.forEach(rec => {
+        if (!reconstructedAttendance[rec.student_id]) {
+          reconstructedAttendance[rec.student_id] = {};
         }
-        setLastSync(new Date(data.updated_at).toLocaleTimeString());
-        showToast('Data Cloud Sinkron!', 'success');
+        reconstructedAttendance[rec.student_id][rec.record_date] = rec.status as AttendanceStatus;
+      });
+
+      setClasses(assembledClasses);
+      setAttendance(reconstructedAttendance);
+      
+      if (assembledClasses.length > 0 && !activeClassId) {
+        setActiveClassId(assembledClasses[0].id);
+      } else if(assembledClasses.length === 0){
+        setActiveClassId(null);
       }
+      
+      showToast('Data Cloud Sinkron!', 'success');
+
     } catch (err: any) {
       console.error('Fetch Failed:', err);
-      showToast('Gagal memuat Cloud, menggunakan data default.', 'error');
+      showToast('Gagal memuat Cloud, periksa koneksi atau pengaturan database.', 'error');
+      setClasses(INITIAL_CLASSES); // Fallback to initial data on error
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated && classes.length > 0) {
-      const debounceTimer = setTimeout(() => {
-        pushToCloud(classes, attendance);
-      }, 1000);
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [attendance, classes, isAuthenticated]);
+  }, [supabase, activeClassId]);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchFromCloud();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchFromCloud]);
 
-  const activeClass = useMemo(() => classes.find(c => c.id === activeClassId) || classes[0], [classes, activeClassId]);
+  const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,18 +174,34 @@ const App: React.FC = () => {
   const handleLogout = () => {
     if (window.confirm('Keluar sistem?')) {
       setIsAuthenticated(false);
-      setClasses(INITIAL_CLASSES);
+      setClasses([]);
       setAttendance({});
-      setActiveClassId(INITIAL_CLASSES[0]?.id || '');
+      setActiveClassId(null);
     }
   };
 
-  const handleStatusChange = (studentId: string, date: string, status: AttendanceStatus) => {
-    if (isFutureDate(new Date(date))) return;
+  const handleStatusChange = async (studentId: string, date: string, status: AttendanceStatus) => {
+    if (isFutureDate(new Date(date)) || !supabase) return;
+
+    // Optimistic UI update
     setAttendance(prev => ({
       ...prev,
       [studentId]: { ...(prev[studentId] || {}), [date]: status }
     }));
+    
+    // Sync to DB
+    try {
+      const { error } = await supabase.from('attendance_records').upsert(
+        { student_id: studentId, record_date: date, status: status },
+        { onConflict: 'student_id, record_date' }
+      );
+      if (error) throw error;
+      setLastSync(new Date().toLocaleTimeString());
+    } catch(err) {
+      console.error("Sync attendance failed:", err);
+      showToast('Gagal simpan absensi', 'error');
+      // Optional: revert optimistic update
+    }
   };
 
   const calculateStats = (studentId: string, dates: Date[]) => {
@@ -251,102 +264,170 @@ const App: React.FC = () => {
     showToast('Rekap Diunduh!');
   };
 
-  const handleAddOrEditClass = () => {
-    if (!adminFormData.className) return;
-    if (editingClass) {
-      setClasses(classes.map(c => c.id === editingClass.id ? { ...c, name: adminFormData.className, schedule: adminFormData.schedule } : c));
-    } else {
-      const newId = `cls-${Date.now()}`;
-      setClasses([...classes, { id: newId, name: adminFormData.className, students: [], assignments: [], schedule: adminFormData.schedule }]);
-      if (!activeClassId) setActiveClassId(newId);
+  const handleAddOrEditClass = async () => {
+    if (!adminFormData.className || !supabase) return;
+    setIsSyncing(true);
+    try {
+      const payload = { name: adminFormData.className, schedule: adminFormData.schedule };
+      const { error } = editingClass
+        ? await supabase.from('classes').update(payload).eq('id', editingClass.id)
+        : await supabase.from('classes').insert(payload);
+      if (error) throw error;
+      showToast(`Kelas ${editingClass ? 'diperbarui' : 'ditambahkan'}!`);
+      await fetchFromCloud();
+    } catch (err) {
+      console.error("Save class failed:", err);
+      showToast('Gagal menyimpan kelas', 'error');
+    } finally {
+      setIsSyncing(false);
+      setShowClassModal(false);
+      setEditingClass(null);
     }
-    setShowClassModal(false);
-    setEditingClass(null);
   };
   
-  const handleDeleteClass = (classId: string) => {
+  const handleDeleteClass = async (classId: string) => {
     const classToDelete = classes.find(c => c.id === classId);
-    if (!classToDelete) return;
-
-    if (window.confirm(`Anda yakin ingin menghapus kelas "${classToDelete.name}"? Semua data siswa dan absensi di kelas ini akan hilang selamanya.`)) {
-        const studentIdsToDelete = classToDelete.students.map(s => s.id);
-        const updatedClasses = classes.filter(c => c.id !== classId);
-        setClasses(updatedClasses);
-
-        setAttendance(prev => {
-            const newAttendance = { ...prev };
-            studentIdsToDelete.forEach(studentId => { delete newAttendance[studentId]; });
-            return newAttendance;
-        });
-
-        if (activeClassId === classId) {
-            setActiveClassId(updatedClasses[0]?.id || '');
-        }
+    if (!classToDelete || !supabase) return;
+    if (window.confirm(`Yakin hapus kelas "${classToDelete.name}"? Semua data siswa & absensi terkait akan hilang.`)) {
+      setIsSyncing(true);
+      try {
+        const { error } = await supabase.from('classes').delete().eq('id', classId);
+        if (error) throw error;
         showToast('Kelas berhasil dihapus', 'info');
+        await fetchFromCloud();
+      } catch (err) {
+        console.error("Delete class failed:", err);
+        showToast('Gagal menghapus kelas', 'error');
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 
-  const handleAddOrEditStudent = () => {
-    if (!activeClassId || !adminFormData.studentName) return;
-    if (editingStudent) {
-      setClasses(classes.map(c => c.id === activeClassId ? { ...c, students: c.students.map(s => s.id === editingStudent.id ? { ...s, name: adminFormData.studentName, nis: adminFormData.studentNis } : s) } : c));
-      showToast('Data siswa diperbarui');
-    } else {
-      const newS = { id: `std-${Date.now()}`, name: adminFormData.studentName, nis: adminFormData.studentNis, nisn: '' };
-      setClasses(classes.map(c => c.id === activeClassId ? { ...c, students: [...c.students, newS] } : c));
-      showToast('Siswa baru ditambahkan');
+  const handleAddOrEditStudent = async () => {
+    if (!activeClassId || !adminFormData.studentName || !supabase) return;
+    setIsSyncing(true);
+    try {
+        const payload = { class_id: activeClassId, name: adminFormData.studentName, nis: adminFormData.studentNis };
+        const { error } = editingStudent
+            ? await supabase.from('students').update(payload).eq('id', editingStudent.id)
+            : await supabase.from('students').insert(payload);
+        if (error) throw error;
+        showToast(`Siswa ${editingStudent ? 'diperbarui' : 'ditambahkan'}!`);
+        await fetchFromCloud();
+    } catch (err) {
+        console.error("Save student failed:", err);
+        showToast('Gagal menyimpan siswa', 'error');
+    } finally {
+        setIsSyncing(false);
+        setShowStudentModal(false);
+        setEditingStudent(null);
     }
-    setShowStudentModal(false);
-    setEditingStudent(null);
   };
 
-  const handleDeleteStudent = (studentId: string) => {
-    if (window.confirm('Hapus siswa ini? Tindakan ini tidak dapat dibatalkan.')) {
-      setClasses(prev => prev.map(c => c.id === activeClassId ? { ...c, students: c.students.filter(s => s.id !== studentId) } : c));
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!supabase || !window.confirm('Hapus siswa ini?')) return;
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase.from('students').delete().eq('id', studentId);
+      if (error) throw error;
       showToast('Siswa dihapus', 'info');
+      await fetchFromCloud();
+    } catch(err) {
+      console.error("Delete student failed:", err);
+      showToast('Gagal menghapus siswa', 'error');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
   const getSubmittedCount = (assignment: Assignment) => Object.values(assignment.submissions || {}).filter(s => s.isSubmitted).length;
 
-  const updateSubmission = (assignmentId: string, studentId: string, field: keyof SubmissionData, value: any) => {
-    setClasses(prev => prev.map(c => {
-      if (c.id === activeClassId) {
-        const updatedAssignments = (c.assignments || []).map(a => {
-          if (a.id === assignmentId) {
-            const updated = { ...a, submissions: { ...a.submissions, [studentId]: { ...(a.submissions[studentId] || { isSubmitted: false, score: '' }), [field]: value } } };
-            if (activeAssignment?.id === assignmentId) setActiveAssignment(updated);
-            return updated;
-          }
-          return a;
-        });
-        return { ...c, assignments: updatedAssignments };
-      }
-      return c;
+  const updateSubmission = async (assignmentId: string, studentId: string, field: keyof SubmissionData, value: any) => {
+    // Optimistic UI update
+    setClasses(prevClasses => prevClasses.map(c => {
+        if (c.id === activeClassId) {
+            const updatedAssignments = (c.assignments || []).map(a => {
+                if (a.id === assignmentId) {
+                    const updatedSubmissions = {
+                        ...a.submissions,
+                        [studentId]: {
+                            ...(a.submissions[studentId] || { isSubmitted: false, score: '' }),
+                            [field]: value
+                        }
+                    };
+                    const updatedAssignment = { ...a, submissions: updatedSubmissions };
+                    if (activeAssignment?.id === assignmentId) {
+                        setActiveAssignment(updatedAssignment);
+                    }
+                    return updatedAssignment;
+                }
+                return a;
+            });
+            return { ...c, assignments: updatedAssignments };
+        }
+        return c;
     }));
+
+    // Sync to DB
+    if (!supabase) return;
+    try {
+        const currentSub = (activeAssignment?.submissions[studentId] || { isSubmitted: false, score: '' });
+        const newSubData = { ...currentSub, [field]: value };
+        const { error } = await supabase.from('submissions').upsert({
+            assignment_id: assignmentId,
+            student_id: studentId,
+            is_submitted: newSubData.isSubmitted,
+            score: newSubData.score
+        }, { onConflict: 'assignment_id, student_id' });
+        if (error) throw error;
+        setLastSync(new Date().toLocaleTimeString());
+    } catch (err) {
+        console.error("Update submission failed:", err);
+        showToast('Gagal menyimpan nilai', 'error');
+    }
   };
 
-  const handleAddOrEditAssignment = () => {
-    if (!activeClassId || !adminFormData.assignTitle) return;
-    const assignmentData: Assignment = editingAssignment ? { ...editingAssignment, title: adminFormData.assignTitle, description: adminFormData.assignDesc, dueDate: adminFormData.assignDue } : { id: `asgn-${Date.now()}`, title: adminFormData.assignTitle, description: adminFormData.assignDesc, dueDate: adminFormData.assignDue, submissions: {} };
-    setClasses(prev => prev.map(c => {
-      if (c.id === activeClassId) {
-        const currentAssignments = c.assignments || [];
-        const newAssignments = editingAssignment ? currentAssignments.map(a => a.id === editingAssignment.id ? assignmentData : a) : [...currentAssignments, assignmentData];
-        return { ...c, assignments: newAssignments };
-      }
-      return c;
-    }));
-    setShowAssignmentModal(false);
-    setEditingAssignment(null);
-    showToast('Tugas disimpan!');
+  const handleAddOrEditAssignment = async () => {
+    if (!activeClassId || !adminFormData.assignTitle || !supabase) return;
+    setIsSyncing(true);
+    try {
+        const payload = {
+            class_id: activeClassId,
+            title: adminFormData.assignTitle,
+            description: adminFormData.assignDesc,
+            due_date: adminFormData.assignDue
+        };
+        const { error } = editingAssignment
+            ? await supabase.from('assignments').update(payload).eq('id', editingAssignment.id)
+            : await supabase.from('assignments').insert(payload);
+        if (error) throw error;
+        showToast('Tugas disimpan!');
+        await fetchFromCloud();
+    } catch(err) {
+        console.error("Save assignment failed:", err);
+        showToast('Gagal menyimpan tugas', 'error');
+    } finally {
+        setIsSyncing(false);
+        setShowAssignmentModal(false);
+        setEditingAssignment(null);
+    }
   };
 
-  const handleDeleteAssignment = (id: string) => {
-    if (window.confirm('Hapus tugas ini? Semua data nilai akan hilang.')) {
-      setClasses(prev => prev.map(c => c.id === activeClassId ? { ...c, assignments: (c.assignments || []).filter(a => a.id !== id) } : c));
-      showToast('Tugas dihapus.', 'info');
-      setActiveMenuId(null);
+  const handleDeleteAssignment = async (id: string) => {
+    if (!supabase || !window.confirm('Hapus tugas ini? Semua data nilai akan hilang.')) return;
+    setIsSyncing(true);
+    try {
+        const { error } = await supabase.from('assignments').delete().eq('id', id);
+        if (error) throw error;
+        showToast('Tugas dihapus.', 'info');
+        setActiveMenuId(null);
+        await fetchFromCloud();
+    } catch (err) {
+        console.error("Delete assignment failed:", err);
+        showToast('Gagal menghapus tugas', 'error');
+    } finally {
+        setIsSyncing(false);
     }
   };
 
@@ -396,12 +477,12 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 active-gradient rounded-2xl flex items-center justify-center text-white font-black">{activeClass?.name?.split(' ')[1]?.charAt(0) || 'S'}</div>
             <div>
-              <h1 className="font-black text-white text-lg uppercase leading-none">{activeClass?.name || 'Sistem Sekolah'}</h1>
+              <h1 className="font-black text-white text-lg uppercase leading-none">{activeClass?.name || 'Pilih Kelas'}</h1>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none">{school.name}</p>
                 <div className={`flex items-center gap-1.5`}>
                    <div className={`w-2 h-2 rounded-full ${isSyncing ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'}`}></div>
-                   <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">{isSyncing ? 'Menyimpan...' : 'Tersimpan di Cloud'}</span>
+                   <span className="text-[8px] font-black text-slate-600 uppercase tracking-tighter">{isSyncing ? 'Menyimpan...' : (lastSync ? `Tersimpan ${lastSync}`: 'Tersimpan')}</span>
                 </div>
               </div>
             </div>
@@ -418,6 +499,11 @@ const App: React.FC = () => {
                 {c.name}
               </button>
             ))}
+             {classes.length === 0 && (
+                <div className="w-full text-center py-4 bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 text-xs font-bold">
+                    Tidak ada kelas. Silakan tambahkan kelas baru di menu Manajemen.
+                </div>
+            )}
           </div>
           <nav className="flex items-center gap-3 bg-slate-900/50 p-2 rounded-[2.5rem] border border-white/5 shadow-2xl">
             {[
@@ -667,8 +753,8 @@ const App: React.FC = () => {
               {adminTab === 'Siswa' && (
                 <div className="dark-card p-8 rounded-[2.5rem] space-y-6 shadow-2xl">
                    <div className="flex justify-between items-center">
-                      <h3 className="font-black text-white uppercase tracking-tighter text-xl">Siswa - {activeClass?.name}</h3>
-                      <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase hover:bg-emerald-500">Tambah Siswa</button>
+                      <h3 className="font-black text-white uppercase tracking-tighter text-xl">Siswa - {activeClass?.name || 'Pilih Kelas'}</h3>
+                      <button onClick={() => { setEditingStudent(null); setAdminFormData({ ...adminFormData, studentName: '', studentNis: '' }); setShowStudentModal(true); }} className="px-5 py-3 bg-emerald-600 text-white rounded-xl font-black text-[9px] uppercase hover:bg-emerald-500" disabled={!activeClass}>Tambah Siswa</button>
                    </div>
                    <div className="overflow-x-auto">
                       <table className="w-full text-left text-[10px]">
@@ -707,20 +793,13 @@ const App: React.FC = () => {
                      <div>
                         <h4 className="text-xl font-black text-white uppercase mb-2">Penyimpanan Aktif</h4>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                           Sistem saat ini sepenuhnya berjalan di atas layanan Supabase Cloud.<br/>
-                           Data akan diperbarui secara otomatis setiap ada perubahan.
+                           Sistem terhubung dengan Supabase Cloud.<br/>
+                           Semua perubahan disimpan secara real-time.
                         </p>
                      </div>
-                     <div className="w-full p-6 bg-slate-950 rounded-[2rem] border border-white/5 text-left">
-                        <div className="flex justify-between items-center mb-2">
-                           <span className="text-[9px] font-black text-slate-600 uppercase">Cloud ID</span>
-                           <span className="text-[10px] font-black text-white">{database.storageId}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                           <span className="text-[9px] font-black text-slate-600 uppercase">Sinkron Terakhir</span>
-                           <span className="text-[10px] font-black text-emerald-400">{lastSync || 'Sesaat lalu'}</span>
-                        </div>
-                     </div>
+                      <button onClick={fetchFromCloud} className="w-full py-4 bg-slate-800 rounded-2xl text-xs font-bold uppercase border border-slate-700 hover:bg-slate-700">
+                        Sinkronisasi Ulang Manual
+                      </button>
                   </div>
                 </div>
               )}
