@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
@@ -33,10 +33,8 @@ const App: React.FC = () => {
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
   
   const { database, auth, school, defaults } = APP_CONFIG;
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const supabase = useMemo(() => {
     try {
@@ -241,83 +239,6 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
   
-  const handleBulkUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!supabase) {
-        showToast('Koneksi database tidak ditemukan.', 'error');
-        return;
-    }
-    if (!activeClassId) {
-        showToast('Pilih kelas terlebih dahulu sebelum mengunggah data siswa.', 'error');
-        return;
-    }
-    if (!event.target.files || event.target.files.length === 0) {
-        return;
-    }
-
-    const file = event.target.files[0];
-    const reader = new FileReader();
-
-    reader.onload = async (e) => {
-        const text = e.target?.result as string;
-        if (!text) {
-            showToast('File kosong atau tidak dapat dibaca.', 'error');
-            return;
-        }
-
-        const lines = text.split(/\r\n|\n/).filter(line => line.trim() !== '');
-        if (lines.length < 2) {
-            showToast('CSV harus memiliki header dan setidaknya satu baris data siswa.', 'error');
-            return;
-        }
-
-        const header = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const nameIndex = header.indexOf('nama');
-        const nisIndex = header.indexOf('nis');
-        const nisnIndex = header.indexOf('nisn');
-
-        if (nameIndex === -1) {
-            showToast('Header CSV harus mengandung kolom "nama".', 'error');
-            return;
-        }
-
-        const studentsToUpload = lines.slice(1).map(line => {
-            const data = line.split(',');
-            return {
-                class_id: activeClassId,
-                name: data[nameIndex]?.trim(),
-                nis: nisIndex > -1 ? data[nisIndex]?.trim() : null,
-                nisn: nisnIndex > -1 ? data[nisnIndex]?.trim() : null,
-            };
-        }).filter(s => s.name); // Hanya unggah siswa yang punya nama
-
-        if (studentsToUpload.length === 0) {
-            showToast('Tidak ada data siswa yang valid untuk diunggah.', 'error');
-            return;
-        }
-
-        setIsUploading(true);
-        showToast(`Mengunggah ${studentsToUpload.length} siswa...`, 'info');
-
-        try {
-            const { error } = await supabase.from('students').insert(studentsToUpload);
-            if (error) throw error;
-
-            showToast('Upload massal siswa berhasil!', 'success');
-            await fetchFromCloud();
-        } catch (err: any) {
-            console.error('Bulk Upload Error:', err);
-            showToast(`Gagal mengunggah: ${err.message}`, 'error');
-        } finally {
-            setIsUploading(false);
-            if(fileInputRef.current) {
-                fileInputRef.current.value = "";
-            }
-        }
-    };
-
-    reader.readAsText(file);
-};
-  
   const weeklyDates = useMemo(() => getWeekDates(currentDate, activeClass?.schedule), [currentDate, activeClass]);
   const monthlyDates = useMemo(() => getMonthDates(activeMonth, activeClass?.schedule), [activeMonth, activeClass]);
   const semesterDates = useMemo(() => getSemesterDates(activeClass?.schedule), [activeClass]);
@@ -371,69 +292,6 @@ const App: React.FC = () => {
                 </button>
             ))}
         </div>
-        
-        {adminTab === 'Siswa' && (
-            <div className="space-y-6">
-                <div>
-                    <h3 className="text-lg font-semibold text-slate-200 mb-2">Manajemen Siswa</h3>
-                    <div className="p-4 rounded-lg border bg-slate-800 border-slate-700">
-                    {!activeClass ? (
-                         <p className="text-slate-400 text-center py-4">Pilih kelas di panel kiri untuk melihat dan mengelola data siswa.</p>
-                    ) : (
-                        <div>
-                            <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                                <p className="text-slate-300">Siswa di kelas: <span className="font-bold text-indigo-400">{activeClass.name}</span></p>
-                                <div className="flex items-center gap-2">
-                                     <a href="/template_siswa.csv" download="template_siswa.csv" className="rounded-md bg-slate-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-500">
-                                        Download Template
-                                    </a>
-                                    <input type="file" accept=".csv" ref={fileInputRef} onChange={handleBulkUpload} className="hidden" />
-                                     <button onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
-                                         {isUploading ? (
-                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                        ) : (
-                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H5.5z" /><path d="M9 13l3-3m0 0l3 3m-3-3v12" /></svg>
-                                        )}
-                                        {isUploading ? 'Mengunggah...' : 'Upload CSV Massal'}
-                                    </button>
-                                </div>
-                            </div>
-
-                             <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-slate-700">
-                                    <thead className="bg-slate-900/50">
-                                        <tr>
-                                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">No</th>
-                                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Nama</th>
-                                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">NIS</th>
-                                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">NISN</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800">
-                                        {activeClass.students.map((student, index) => (
-                                            <tr key={student.id}>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-400">{index + 1}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-slate-200">{student.name}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-400">{student.nis}</td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-400">{student.nisn}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {activeClass.students.length === 0 && (
-                                <p className="text-center py-8 text-slate-500">Belum ada siswa di kelas ini.</p>
-                            )}
-
-                        </div>
-                    )}
-                    </div>
-                </div>
-            </div>
-        )}
         
         {adminTab === 'Database' && (
              <div className="space-y-6">
