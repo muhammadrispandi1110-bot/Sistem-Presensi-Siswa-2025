@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
@@ -28,9 +28,61 @@ interface Notification {
   id: number;
 }
 
+// Komponen Login yang diisolasi untuk efisiensi
+const LoginScreen = ({ onLoginSuccess, showToast, authConfig, schoolConfig }) => {
+  const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginForm.user === authConfig.username && loginForm.pass === authConfig.password) {
+      onLoginSuccess();
+    } else {
+      showToast('Username atau Password salah!', 'error');
+    }
+  };
+  
+  return (
+    <div className="min-h-screen w-full flex items-center justify-center login-bg p-4">
+        <div className="w-full max-w-sm glass-panel rounded-2xl p-8 shadow-2xl">
+            <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-white tracking-tight">{schoolConfig.name}</h1>
+                <p className="text-slate-400 mt-1">Sistem Presensi Digital {schoolConfig.year}</p>
+            </div>
+            <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="username">Username</label>
+                    <input
+                        type="text"
+                        id="username"
+                        value={loginForm.user}
+                        onChange={e => setLoginForm(f => ({ ...f, user: e.target.value }))}
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="admin"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="password">Password</label>
+                    <input
+                        type="password"
+                        id="password"
+                        value={loginForm.pass}
+                        onChange={e => setLoginForm(f => ({ ...f, pass: e.target.value }))}
+                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="••••••••"
+                    />
+                </div>
+                <button type="submit" className="w-full active-gradient text-white font-semibold py-2 rounded-lg">
+                    Login
+                </button>
+            </form>
+        </div>
+    </div>
+  );
+};
+
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   
@@ -145,9 +197,14 @@ const App: React.FC = () => {
   }, [supabase, activeClassId, database.url, database.anonKey, showToast]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchFromCloud();
-    }
+    // Simulasi loading awal yang lebih baik
+    setTimeout(() => {
+       if (isAuthenticated) {
+         fetchFromCloud();
+       } else {
+         setIsLoading(false);
+       }
+    }, 500)
   }, [isAuthenticated, fetchFromCloud]);
   
   const seedInitialData = useCallback(async () => {
@@ -209,15 +266,6 @@ const App: React.FC = () => {
 }, [supabase, showToast, fetchFromCloud, defaults.teachingDays]);
 
   const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loginForm.user === auth.username && loginForm.pass === auth.password) {
-      setIsAuthenticated(true);
-    } else {
-      showToast('Username atau Password salah!', 'error');
-    }
-  };
   
   const handleAttendanceChange = async (studentId: string, date: string, status: AttendanceStatus) => {
     const updatedAttendance = { ...attendance };
@@ -244,44 +292,6 @@ const App: React.FC = () => {
   const semesterDates = useMemo(() => getSemesterDates(activeClass?.schedule), [activeClass]);
 
   // UI Render Components
-  const LoginScreen = () => (
-    <div className="min-h-screen w-full flex items-center justify-center login-bg p-4">
-        <div className="w-full max-w-sm glass-panel rounded-2xl p-8 shadow-2xl">
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-white tracking-tight">{school.name}</h1>
-                <p className="text-slate-400 mt-1">Sistem Presensi Digital {school.year}</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-6">
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="username">Username</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={loginForm.user}
-                        onChange={e => setLoginForm(f => ({ ...f, user: e.target.value }))}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="admin"
-                    />
-                </div>
-                <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={loginForm.pass}
-                        onChange={e => setLoginForm(f => ({ ...f, pass: e.target.value }))}
-                        className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="••••••••"
-                    />
-                </div>
-                <button type="submit" className="w-full active-gradient text-white font-semibold py-2 rounded-lg">
-                    Login
-                </button>
-            </form>
-        </div>
-    </div>
-  );
-  
   const AdminView = () => (
     <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
         <h2 className="text-2xl font-bold text-white mb-6">Manajemen & Pengaturan</h2>
@@ -413,8 +423,26 @@ const App: React.FC = () => {
     </div>
   )
   
-  if (!isAuthenticated) return <><LoginScreen /><NotificationArea/></>;
-  if (isLoading) return <div className="min-h-screen w-full flex items-center justify-center text-slate-400">Memuat data...</div>;
+  if (isLoading) {
+    return <div className="min-h-screen w-full flex items-center justify-center text-slate-400">Memuat Aplikasi...</div>;
+  }
+  
+  if (!isAuthenticated) { 
+    return (
+      <>
+        <LoginScreen 
+          onLoginSuccess={() => {
+            setIsAuthenticated(true);
+            setIsLoading(true);
+          }}
+          showToast={showToast}
+          authConfig={auth}
+          schoolConfig={school}
+        />
+        <NotificationArea />
+      </>
+    );
+  }
 
   return (
     <div className="h-screen w-screen bg-slate-900 text-slate-200 flex flex-col md:flex-row">
