@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import * as XLSX from 'xlsx';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
 import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES, STATUS_LABELS } from './types.ts';
@@ -26,19 +27,22 @@ const MENU_ITEMS: { view: ViewType; label: string }[] = [
   { view: 'Reports', label: 'Laporan' },
 ];
 
+type ParsedStudent = Omit<Student, 'id'>;
+
 // Komponen Modal generik
-const Modal = ({ isOpen, onClose, title, children, footer }) => {
+const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
+  const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 print-hide">
-      <div className="w-full max-w-md bg-slate-800 rounded-xl shadow-lg flex flex-col view-transition">
+      <div className={`w-full ${sizeClass} bg-slate-800 rounded-xl shadow-lg flex flex-col view-transition`}>
         <header className="flex items-center justify-between p-4 border-b border-slate-700">
           <h3 className="text-lg font-semibold text-white">{title}</h3>
           <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </header>
-        <main className="p-4 space-y-4">{children}</main>
+        <main className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">{children}</main>
         <footer className="flex justify-end p-4 bg-slate-900/50 rounded-b-xl border-t border-slate-700">
           {footer}
         </footer>
@@ -117,6 +121,11 @@ const App: React.FC = () => {
   const [editingItem, setEditingItem] = useState<ClassData | Student | Assignment | null>(null);
   const [adminSelectedClassId, setAdminSelectedClassId] = useState<string | null>(null);
   
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
+  const [parsedStudents, setParsedStudents] = useState<ParsedStudent[]>([]);
+  const [uploadFileName, setUploadFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [adminFormData, setAdminFormData] = useState({ 
     className: '', 
     schedule: defaults.teachingDays,
@@ -303,6 +312,81 @@ const App: React.FC = () => {
       setIsSyncing(false);
     }
   };
+
+  // Bulk Upload Handlers
+  const handleFileParse = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = event.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary' });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+            
+            const students: ParsedStudent[] = json.map(row => ({
+                name: String(row.nama || '').trim(),
+                nis: String(row.nis || '').trim(),
+                nisn: String(row.nisn || '').trim(),
+            })).filter(s => s.name); // Filter out rows without a name
+
+            if(students.length === 0){
+                showToast('File tidak mengandung data siswa atau format kolom salah. Gunakan kolom: nama, nis, nisn.', 'error');
+                return;
+            }
+            setParsedStudents(students);
+        } catch (error) {
+            showToast('Gagal memproses file. Pastikan format file benar.', 'error');
+            console.error(error);
+        }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleBulkSave = async () => {
+    if (!supabase || !adminSelectedClassId || parsedStudents.length === 0) {
+        showToast('Tidak ada data siswa untuk diunggah atau kelas belum dipilih.', 'error');
+        return;
+    }
+    setIsSyncing(true);
+    try {
+        const studentsToInsert = parsedStudents.map(s => ({ ...s, class_id: adminSelectedClassId }));
+        const { error } = await supabase.from('students').insert(studentsToInsert);
+        if (error) throw error;
+
+        showToast(`${parsedStudents.length} siswa berhasil diunggah!`, 'success');
+        await fetchFromCloud();
+        // Reset and close modal
+        setShowBulkUploadModal(false);
+        setParsedStudents([]);
+        setUploadFileName('');
+        if(fileInputRef.current) fileInputRef.current.value = '';
+
+    } catch (err: any) {
+        showToast(`Gagal mengunggah massal: ${err.message}`, 'error');
+    } finally {
+        setIsSyncing(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const headers = "nama,nis,nisn";
+    const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.href) {
+        URL.revokeObjectURL(link.href);
+    }
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "template_unggah_siswa.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
   
   const weeklyDates = useMemo(() => getWeekDates(currentDate, activeClass?.schedule), [currentDate, activeClass]);
   const monthlyDates = useMemo(() => getMonthDates(activeMonth, activeClass?.schedule), [activeMonth, activeClass]);
@@ -355,55 +439,77 @@ const App: React.FC = () => {
             </div>
         )}
 
-        {(adminTab === 'Siswa' || adminTab === 'Tugas') && (
+        {adminTab === 'Siswa' && (
             <div>
-                 <div className="flex justify-between items-center mb-4 gap-4">
-                     <div className="flex-1">
+                 <div className="flex justify-between items-center mb-4 gap-4 flex-wrap">
+                     <div className="flex-1 min-w-[200px]">
                         <label htmlFor="class-selector" className="text-sm font-medium text-slate-400 block mb-1">Pilih Kelas</label>
                         <select id="class-selector" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm">
+                            <option value="" disabled>-- Pilih Kelas --</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <div className="self-end">
-                       <button onClick={() => openModal(adminTab === 'Siswa' ? 'student' : 'assignment')} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
-                          Tambah {adminTab}
+                    <div className="self-end flex gap-2">
+                       <button onClick={() => openModal('student')} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+                          Tambah Siswa
+                        </button>
+                        <button onClick={() => setShowBulkUploadModal(true)} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-sky-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-500 disabled:opacity-50">
+                          Unggah Massal
                         </button>
                     </div>
                 </div>
                 <div className="dark-card rounded-xl p-4">
-                    {adminTab === 'Siswa' && (
-                        <table className="min-w-full">
-                            <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
-                            <tbody>
-                               {adminSelectedClass?.students.map(s => (
-                               <tr key={s.id} className="border-t border-slate-800">
-                                   <td className="py-3 pr-4 text-slate-200 font-medium">{s.name}</td>
-                                   <td className="py-3 px-4 text-slate-300">{s.nis}</td>
-                                   <td className="py-3 pl-4 text-right space-x-2">
-                                       <button onClick={() => openModal('student', s)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
-                                       <button onClick={() => handleDelete('student', s.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
-                                   </td>
-                               </tr>))}
-                            </tbody>
-                        </table>
-                    )}
-                     {adminTab === 'Tugas' && (
-                        <table className="min-w-full">
-                            <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
-                            <tbody>
-                               {adminSelectedClass?.assignments?.map(a => (
-                               <tr key={a.id} className="border-t border-slate-800">
-                                   <td className="py-3 pr-4 text-slate-200 font-medium">{a.title}</td>
-                                   <td className="py-3 px-4 text-slate-300">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
-                                   <td className="py-3 pl-4 text-right space-x-2">
-                                       <button onClick={() => openModal('assignment', a)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
-                                       <button onClick={() => handleDelete('assignment', a.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
-                                   </td>
-                               </tr>))}
-                            </tbody>
-                        </table>
-                    )}
-                    {(!adminSelectedClassId || (adminTab === 'Siswa' && adminSelectedClass?.students.length === 0) || (adminTab === 'Tugas' && adminSelectedClass?.assignments?.length === 0)) && (<p className="text-center text-slate-500 py-6">Data belum tersedia.</p>)}
+                    <table className="min-w-full">
+                        <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
+                        <tbody>
+                            {adminSelectedClass?.students.map(s => (
+                            <tr key={s.id} className="border-t border-slate-800">
+                                <td className="py-3 pr-4 text-slate-200 font-medium">{s.name}</td>
+                                <td className="py-3 px-4 text-slate-300">{s.nis}</td>
+                                <td className="py-3 pl-4 text-right space-x-2">
+                                    <button onClick={() => openModal('student', s)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
+                                    <button onClick={() => handleDelete('student', s.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
+                                </td>
+                            </tr>))}
+                        </tbody>
+                    </table>
+                    {(!adminSelectedClassId || adminSelectedClass?.students.length === 0) && (<p className="text-center text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat siswa.' : 'Belum ada siswa di kelas ini.'}</p>)}
+                </div>
+            </div>
+        )}
+
+        {adminTab === 'Tugas' && (
+            <div>
+                 <div className="flex justify-between items-center mb-4 gap-4">
+                     <div className="flex-1">
+                        <label htmlFor="class-selector-tugas" className="text-sm font-medium text-slate-400 block mb-1">Pilih Kelas</label>
+                        <select id="class-selector-tugas" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm">
+                            <option value="" disabled>-- Pilih Kelas --</option>
+                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="self-end">
+                       <button onClick={() => openModal('assignment')} disabled={!adminSelectedClassId} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50">
+                          Tambah Tugas
+                        </button>
+                    </div>
+                </div>
+                <div className="dark-card rounded-xl p-4">
+                    <table className="min-w-full">
+                        <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
+                        <tbody>
+                            {adminSelectedClass?.assignments?.map(a => (
+                            <tr key={a.id} className="border-t border-slate-800">
+                                <td className="py-3 pr-4 text-slate-200 font-medium">{a.title}</td>
+                                <td className="py-3 px-4 text-slate-300">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                                <td className="py-3 pl-4 text-right space-x-2">
+                                    <button onClick={() => openModal('assignment', a)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
+                                    <button onClick={() => handleDelete('assignment', a.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
+                                </td>
+                            </tr>))}
+                        </tbody>
+                    </table>
+                    {(!adminSelectedClassId || adminSelectedClass?.assignments?.length === 0) && (<p className="text-center text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat tugas.' : 'Belum ada tugas di kelas ini.'}</p>)}
                 </div>
             </div>
         )}
@@ -546,7 +652,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center justify-between border-b border-slate-700 mb-4 print-hide">
           <div className="flex">
-            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>{tab}</button>))}
+            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>{tab.replace('Daily', 'Harian').replace('Weekly', 'Mingguan').replace('Monthly', 'Bulanan')}</button>))}
           </div>
           {reportTab === 'Daily' && (
             <div className="flex items-center gap-2">
@@ -627,6 +733,59 @@ const App: React.FC = () => {
           <div><label className="text-sm text-slate-300 block mb-1">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData(f => ({...f, assignmentDesc: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" rows={3}></textarea></div>
           <div><label className="text-sm text-slate-300 block mb-1">Batas Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData(f => ({...f, assignmentDueDate: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
         </>}
+      </Modal>
+
+      <Modal
+        isOpen={showBulkUploadModal}
+        size="lg"
+        onClose={() => {
+            setShowBulkUploadModal(false);
+            setParsedStudents([]);
+            setUploadFileName('');
+            if(fileInputRef.current) fileInputRef.current.value = '';
+        }}
+        title={`Unggah Siswa Massal ke Kelas: ${classes.find(c => c.id === adminSelectedClassId)?.name || ''}`}
+        footer={<>
+            <button onClick={() => { setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="px-4 py-2 text-sm rounded-md text-slate-300 hover:bg-slate-700">Batal</button>
+            <button onClick={handleBulkSave} disabled={isSyncing || parsedStudents.length === 0} className="px-4 py-2 text-sm rounded-md bg-sky-600 text-white font-semibold hover:bg-sky-500 disabled:opacity-50">
+                {isSyncing ? 'Menyimpan...' : `Simpan ${parsedStudents.length} Siswa`}
+            </button>
+        </>}
+      >
+        <div className="space-y-4">
+            <div className="p-3 rounded-md bg-slate-900/50 border border-slate-700 text-sm text-slate-300">
+                <p className="font-semibold mb-2">Petunjuk:</p>
+                <ul className="list-disc list-inside space-y-1">
+                    <li>Gunakan file Excel (.xlsx, .xls) atau .csv.</li>
+                    <li>Pastikan file memiliki kolom dengan judul: <code className="bg-slate-700 px-1 rounded">nama</code>, <code className="bg-slate-700 px-1 rounded">nis</code>, dan <code className="bg-slate-700 px-1 rounded">nisn</code>.</li>
+                    <li>
+                        <button onClick={downloadTemplate} className="text-indigo-400 hover:underline font-semibold">Unduh file template</button> untuk format yang benar.
+                    </li>
+                </ul>
+            </div>
+            <div>
+                <label htmlFor="file-upload" className="w-full cursor-pointer bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-md inline-flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                    {uploadFileName ? `File: ${uploadFileName}` : 'Pilih File Excel...'}
+                </label>
+                <input ref={fileInputRef} id="file-upload" type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleFileParse} />
+            </div>
+            {parsedStudents.length > 0 && (
+                <div>
+                    <h4 className="font-semibold text-slate-200 mb-2">Pratinjau Data:</h4>
+                    <div className="max-h-60 overflow-y-auto border border-slate-700 rounded-md">
+                        <table className="min-w-full text-sm">
+                            <thead className="bg-slate-900 sticky top-0"><tr className="text-left"><th className="p-2">Nama</th><th className="p-2">NIS</th><th className="p-2">NISN</th></tr></thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {parsedStudents.map((student, index) => (
+                                    <tr key={index}><td className="p-2">{student.name}</td><td className="p-2">{student.nis}</td><td className="p-2">{student.nisn}</td></tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+        </div>
       </Modal>
     </div>
   );
