@@ -35,7 +35,7 @@ export interface AttendanceRecord {
   };
 }
 
-export type ViewType = 'Daily' | 'Reports' | 'Assignments' | 'Admin' | 'TaskReports';
+export type ViewType = 'Dashboard' | 'Reports' | 'Admin' | 'TaskReports';
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {
   'H': 'Hadir',
