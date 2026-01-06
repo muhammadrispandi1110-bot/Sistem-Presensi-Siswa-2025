@@ -1,13 +1,13 @@
-#  Deploy Aplikasi Presensi ke Netlify dengan Database Supabase
+#  Deploy Aplikasi Presensi ke Vercel dengan Database Supabase
 ## Panduan Lengkap untuk SMAN 11 Makassar
 
-Selamat datang, Bapak. Dokumen ini akan memandu Bapak secara **langkah-demi-langkah** untuk membuat aplikasi presensi ini berjalan online di internet (menggunakan Netlify) dan terhubung ke database cloud pribadi milik Bapak (menggunakan Supabase).
+Selamat datang, Bapak. Dokumen ini akan memandu Bapak secara **langkah-demi-langkah** untuk membuat aplikasi presensi ini berjalan online di internet (menggunakan Vercel) dan terhubung ke database cloud pribadi milik Bapak (menggunakan Supabase).
 
 ---
 
 ### **Langkah 1: Menyiapkan Database di Supabase**
 
-Supabase akan menjadi "hard disk online" tempat semua data presensi, kelas, dan siswa disimpan secara aman.
+Supabase akan menjadi "hard disk online" tempat semua data presensi, kelas, dan siswa disimpan secara aman. Langkah ini sama persis, tidak peduli Bapak menggunakan Vercel atau Netlify.
 
 1.  **Buat Akun & Proyek Baru**
     *   Buka [Supabase.com](https://supabase.com/) dan daftar atau login.
@@ -115,43 +115,46 @@ CREATE POLICY "Public access for attendance" ON attendance_records FOR ALL USING
 
 ---
 
-### **Langkah 2: Deploy Aplikasi ke Netlify**
+### **Langkah 2: Deploy Aplikasi ke Vercel**
 
-Netlify adalah layanan yang akan mempublikasikan aplikasi Bapak ke internet.
+Vercel adalah layanan yang akan mempublikasikan aplikasi Bapak ke internet.
 
-1.  **Hubungkan Akun GitHub ke Netlify**
-    *   Buka [Netlify.com](https://app.netlify.com/) dan login (disarankan menggunakan akun GitHub Bapak).
-    *   Di dashboard, klik **"Add new site"** lalu pilih **"Import an existing project"**.
-    *   Pilih **GitHub** sebagai provider.
-    *   Cari dan pilih repository (proyek) aplikasi presensi Bapak.
+1.  **Hubungkan Akun GitHub ke Vercel**
+    *   Buka [Vercel.com](https://vercel.com/) dan login (disarankan menggunakan akun GitHub Bapak).
+    *   Di dashboard, klik **"Add New..."** lalu pilih **"Project"**.
+    *   Pilih **"Continue with GitHub"** (atau provider lain tempat Bapak menyimpan kode).
+    *   Cari dan klik **"Import"** pada repository (proyek) aplikasi presensi Bapak.
 
 2.  **Konfigurasi dan Deploy**
-    *   Netlify biasanya akan otomatis mendeteksi pengaturan yang benar. Cukup pastikan pengaturannya sudah sesuai dan klik tombol **"Deploy site"**.
-    *   Tunggu beberapa saat hingga Netlify selesai membangun dan mempublikasikan situs Bapak.
+    *   Vercel akan otomatis mendeteksi bahwa ini adalah proyek Vite dan mengisi pengaturannya dengan benar.
+    *   Bapak tidak perlu mengubah apa pun di halaman ini. Langsung klik tombol **"Deploy"**.
+    *   Tunggu beberapa saat hingga Vercel selesai membangun dan mempublikasikan situs Bapak.
 
 ---
 
-### **Langkah 3: Menghubungkan Netlify ke Supabase**
+### **Langkah 3: Menghubungkan Vercel ke Supabase**
 
-Sekarang, kita beritahu Netlify "kunci pintu" ke database Supabase yang sudah Bapak simpan tadi.
+Sekarang, kita beritahu Vercel "kunci pintu" ke database Supabase yang sudah Bapak simpan tadi.
 
-1.  **Buka Pengaturan Situs di Netlify**
-    *   Di dashboard Netlify, klik situs yang baru saja Bapak deploy.
-    *   Buka menu **Site configuration** > **Environment variables**.
+1.  **Buka Pengaturan Proyek di Vercel**
+    *   Setelah deploy berhasil, Bapak akan dibawa ke halaman selamat. Dari sana, klik **"Continue to Dashboard"**.
+    *   Di dashboard proyek Bapak, buka tab **Settings** lalu pilih menu **Environment Variables**.
 
 2.  **Tambahkan Variabel**
-    *   Klik **"Add a variable"** dan pilih **"Add a single variable"**.
-    *   Buat dua variabel, satu per satu:
+    *   Buat dua variabel, satu per satu, dengan cara berikut:
 
 | Key (Nama Variabel)      | Value (Isi Variabel)                                   |
 | :----------------------- | :----------------------------------------------------- |
 | `VITE_SUPABASE_URL`      | Tempel **Project URL** yang Bapak salin dari Supabase. |
 | `VITE_SUPABASE_ANON_KEY` | Tempel **Kunci `anon` `public`** yang Bapak salin.     |
 
+    *   Setelah mengisi Key dan Value untuk setiap variabel, pastikan Bapak menekan tombol **Save**.
+
 3.  **Deploy Ulang (PENTING!)**
-    *   Setelah menyimpan kedua variabel di atas, Netlify perlu membaca konfigurasi baru ini.
-    *   Buka tab **"Deploys"** untuk situs Bapak.
-    *   Klik tombol **"Trigger deploy"** dan pilih **"Deploy site"**.
+    *   Setelah menyimpan *environment variables*, Vercel perlu membaca konfigurasi baru ini.
+    *   Buka tab **Deployments**.
+    *   Di samping deployment terbaru, cari tombol titik tiga (menu) dan klik **"Redeploy"**.
+    *   Konfirmasi dengan menekan **"Redeploy"** lagi.
     *   Tunggu hingga proses deploy selesai.
 
 ---
@@ -161,17 +164,17 @@ Sekarang, kita beritahu Netlify "kunci pintu" ke database Supabase yang sudah Ba
 Setelah deploy ulang selesai, aplikasi Bapak sudah online dan terhubung ke database. Namun, databasenya masih kosong.
 
 1.  **Buka dan Login ke Aplikasi**
-    *   Buka alamat situs Netlify Bapak (misal: `nama-situs-bapak.netlify.app`).
+    *   Buka alamat situs Vercel Bapak (misal: `nama-proyek-bapak.vercel.app`).
     *   Login menggunakan username dan password default:
         *   Username: `admin`
         *   Password: `admin`
         *   *(Bapak bisa mengubahnya nanti di file `config.ts`)*
 
 2.  **Gunakan Fitur "Isi Data Awal"**
-    *   Di dalam aplikasi, navigasi ke menu **Manajemen** (Admin).
+    *   Di dalam aplikasi, navigasi ke menu **Admin**.
     *   Pilih tab **Database**.
     *   Bapak akan melihat panel status "Terhubung ke Supabase Cloud". Di bawahnya, akan ada panel **"Isi Data Awal"**.
     *   Klik tombol **"Isi Database Dengan Data Awal"**.
     *   Konfirmasi tindakan tersebut. Aplikasi akan secara otomatis mengisi database kosong Bapak dengan daftar kelas dan siswa awal.
 
-**Selesai!** Aplikasi presensi Bapak kini sudah sepenuhnya online, terhubung dengan database cloud, dan siap digunakan. Semua data yang Bapak masukkan akan tersimpan dengan aman di akun Supabase Bapak.
+**Selesai!** Aplikasi presensi Bapak kini sudah sepenuhnya online di Vercel, terhubung dengan database cloud Supabase, dan siap digunakan. Semua data yang Bapak masukkan akan tersimpan dengan aman.
