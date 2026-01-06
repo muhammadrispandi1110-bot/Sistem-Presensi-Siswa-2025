@@ -404,7 +404,6 @@ const App: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // FIX: Moved date calculations before their usage in `handleExportAttendanceToExcel` to resolve declaration errors.
   const weeklyDates = useMemo(() => getWeekDates(currentDate, activeClass?.schedule), [currentDate, activeClass]);
   const monthlyDates = useMemo(() => getMonthDates(activeMonth, activeClass?.schedule), [activeMonth, activeClass]);
   const semesterDates = useMemo(() => getSemesterDates(activeClass?.schedule), [activeClass]);
@@ -417,7 +416,13 @@ const App: React.FC = () => {
                   reportTab === 'Monthly' ? monthlyDates :
                   semesterDates;
                   
-    const dateHeaders = dates.map(d => `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`);
+    const dateHeaders = dates.map(d => {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+    });
+
     const headers = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A"];
     
     const data = activeClass.students.map((student, index) => {
@@ -434,8 +439,15 @@ const App: React.FC = () => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Presensi");
     
-    const reportTypeName = reportTab === 'Daily' ? `Harian_${formatDate(currentDate)}` :
-                           reportTab === 'Weekly' ? `Mingguan_${formatDate(weeklyDates[0])}` :
+    const formatDateForFilename = (d: Date) => {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+
+    const reportTypeName = reportTab === 'Daily' ? `Harian_${formatDateForFilename(currentDate)}` :
+                           reportTab === 'Weekly' ? `Mingguan_${formatDateForFilename(weeklyDates[0])}` :
                            reportTab === 'Monthly' ? `Bulanan_${MONTHS_2026[activeMonth].name}` : 'Semester';
     
     const fileName = `Laporan_Presensi_${activeClass.name.replace(/ /g, '_')}_${reportTypeName}.xlsx`;
