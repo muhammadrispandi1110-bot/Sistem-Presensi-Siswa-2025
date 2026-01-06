@@ -107,7 +107,7 @@ const App: React.FC = () => {
   
   const [activeClassId, setActiveClassId] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>('Admin');
-  const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
+  const [reportTab, setReportTab] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Semester'>('Daily');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
   const [activeMonth, setActiveMonth] = useState(defaults.startMonth);
@@ -242,7 +242,6 @@ const App: React.FC = () => {
   // CRUD Handlers
   const openModal = (type: 'class' | 'student' | 'assignment', item: ClassData | Student | Assignment | null = null) => {
     setEditingItem(item);
-    // Populate form data if editing
     if (item) {
       if (type === 'class') {
         const c = item as ClassData;
@@ -254,7 +253,7 @@ const App: React.FC = () => {
         const a = item as Assignment;
         setAdminFormData(f => ({ ...f, assignmentTitle: a.title, assignmentDesc: a.description, assignmentDueDate: a.dueDate }));
       }
-    } else { // Reset form data for new item
+    } else {
       setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: '' });
     }
     setShowModal(type);
@@ -511,7 +510,14 @@ const App: React.FC = () => {
   
   const ReportsView = () => {
     if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat laporan.</div>;
-    const dates = useMemo(() => reportTab === 'Weekly' ? weeklyDates : reportTab === 'Monthly' ? monthlyDates : semesterDates, [reportTab, weeklyDates, monthlyDates, semesterDates]);
+    
+    const dates = useMemo(() => {
+        if (reportTab === 'Daily') return [currentDate];
+        if (reportTab === 'Weekly') return weeklyDates;
+        if (reportTab === 'Monthly') return monthlyDates;
+        return semesterDates;
+    }, [reportTab, currentDate, weeklyDates, monthlyDates, semesterDates]);
+
     const totals = useMemo(() => {
       const classTotals: Record<string, Record<AttendanceStatus | 'T', number>> = {};
       activeClass.students.forEach(s => {
@@ -525,6 +531,13 @@ const App: React.FC = () => {
       return classTotals;
     }, [activeClass.students, dates, attendance]);
 
+    const reportTitle = useMemo(() => {
+        if (reportTab === 'Daily') return `HARIAN: ${currentDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}).toUpperCase()}`;
+        if (reportTab === 'Weekly') return `MINGGUAN (MULAI ${weeklyDates[0]?.toLocaleDateString('id-ID') || ''})`;
+        if (reportTab === 'Monthly') return `BULANAN: ${MONTHS_2026[activeMonth].name.toUpperCase()}`;
+        return `SEMESTER`;
+    }, [reportTab, currentDate, weeklyDates, activeMonth]);
+
     return (
       <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
@@ -533,12 +546,19 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center justify-between border-b border-slate-700 mb-4 print-hide">
           <div className="flex">
-            {(['Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>{tab}</button>))}
+            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>{tab}</button>))}
           </div>
+          {reportTab === 'Daily' && (
+            <div className="flex items-center gap-2">
+                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button>
+                <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 text-sm rounded-md bg-slate-700 hover:bg-slate-600">Hari Ini</button>
+                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button>
+            </div>
+          )}
           {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-400">Minggu Ini</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
           {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
         </div>
-        <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p>LAPORAN PRESENSI KELAS: {activeClass.name}</p><p>{school.periodName} {school.year}</p></div>
+        <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p className="text-md text-gray-700">LAPORAN PRESENSI KELAS: {activeClass.name} - {reportTitle}</p><p className="text-sm text-gray-600">{school.periodName} {school.year}</p></div>
         <div className="overflow-auto flex-1">
           <table className="min-w-full divide-y divide-slate-700 border-collapse">
             <thead className="bg-slate-800 sticky top-0">
