@@ -578,12 +578,21 @@ const App: React.FC = () => {
 
   const AssignmentsView = () => {
     if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat tugas.</div>;
+    
     const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
       if(!supabase) return;
       setIsSyncing(true);
       const { error } = await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
       if (error) { showToast('Gagal menyimpan status tugas', 'error'); } else { showToast('Status tugas diperbarui'); fetchFromCloud(); }
       setIsSyncing(false);
+    };
+
+    const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
+        if(!supabase) return;
+        setIsSyncing(true);
+        const { error } = await supabase.from('submissions').update({ score }).match({ assignment_id: assignmentId, student_id: studentId });
+        if (error) { showToast('Gagal menyimpan nilai', 'error'); } else { showToast('Nilai berhasil disimpan'); fetchFromCloud(); }
+        setIsSyncing(false);
     };
 
     return (
@@ -601,19 +610,19 @@ const App: React.FC = () => {
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full">
-                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Terkumpul</th></tr></thead>
+                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Diangkat</th><th className="py-2 pl-4 text-center text-sm font-semibold text-slate-400">Nilai</th></tr></thead>
                                 <tbody>
                                     {activeClass.students.map((s, idx) => {
                                         const sub = a.submissions[s.id]; const isSub = sub?.isSubmitted || false;
                                         return (
                                           <tr key={s.id} className="border-t border-slate-800">
-                                            <td className="py-3 pr-4 text-slate-400 text-sm">{idx + 1}.</td>
-                                            <td className="py-3 px-4 text-slate-200 font-medium text-sm">{s.name}</td>
-                                            <td className="py-3 px-4 text-center">
+                                            <td className="py-2 pr-4 text-slate-400 text-sm">{idx + 1}.</td>
+                                            <td className="py-2 px-4 text-slate-200 font-medium text-sm">{s.name}</td>
+                                            <td className="py-2 px-4 text-center">
                                                 <button 
                                                     onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} 
                                                     className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500 ${isSub ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-700 text-transparent hover:bg-slate-600 border border-slate-500'}`}
-                                                    aria-label={`Tandai tugas ${s.name} sebagai ${isSub ? 'belum terkumpul' : 'terkumpul'}`}
+                                                    aria-label={`Tandai tugas ${s.name} sebagai ${isSub ? 'belum diangkat' : 'sudah diangkat'}`}
                                                     aria-checked={isSub}
                                                     role="checkbox"
                                                 >
@@ -623,6 +632,16 @@ const App: React.FC = () => {
                                                         </svg>
                                                     )}
                                                 </button>
+                                            </td>
+                                            <td className="py-1 pl-4 text-center">
+                                                <input
+                                                    type="text"
+                                                    defaultValue={sub?.score || ''}
+                                                    onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)}
+                                                    disabled={!isSub}
+                                                    placeholder={isSub ? '...' : '–'}
+                                                    className="w-20 bg-slate-700 border border-slate-600 rounded-md px-2 py-1 text-sm text-white text-center transition-colors disabled:bg-slate-800 disabled:border-slate-700 disabled:cursor-not-allowed placeholder:text-slate-500"
+                                                />
                                             </td>
                                           </tr>)
                                     })}
