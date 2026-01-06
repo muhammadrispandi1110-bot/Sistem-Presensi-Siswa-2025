@@ -8,10 +8,10 @@ import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assig
 import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
 const DARK_STATUS_COLORS: Record<AttendanceStatus, string> = {
-  'H': 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30 ring-emerald-500/20',
-  'S': 'text-blue-400 bg-blue-500/10 border-blue-500/30 ring-blue-500/20',
-  'I': 'text-amber-400 bg-amber-500/10 border-amber-500/30 ring-emerald-500/20',
-  'A': 'text-rose-400 bg-rose-500/10 border-rose-500/30 ring-rose-500/20'
+  'H': 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 ring-emerald-500/20',
+  'S': 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/10 border-blue-200 dark:border-blue-500/30 ring-blue-500/20',
+  'I': 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30 ring-emerald-500/20',
+  'A': 'text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 ring-rose-500/20'
 };
 
 interface Notification {
@@ -30,21 +30,23 @@ const MENU_ITEMS: { view: ViewType; label: string }[] = [
 
 type ParsedStudent = Omit<Student, 'id'>;
 
+type Theme = 'light' | 'dark';
+
 // Komponen Modal generik
 const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
   const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 print-hide">
-      <div className={`w-full ${sizeClass} bg-slate-800 rounded-xl shadow-lg flex flex-col view-transition`}>
-        <header className="flex items-center justify-between p-4 border-b border-slate-700">
-          <h3 className="text-lg font-semibold text-white">{title}</h3>
-          <button onClick={onClose} className="p-1 rounded-full text-slate-400 hover:bg-slate-700">
+    <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/70 z-50 flex items-center justify-center p-4 print-hide">
+      <div className={`w-full ${sizeClass} bg-white dark:bg-slate-800 rounded-xl shadow-lg flex flex-col view-transition`}>
+        <header className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h3>
+          <button onClick={onClose} className="p-1 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </header>
         <main className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">{children}</main>
-        <footer className="flex justify-end p-4 bg-slate-900/50 rounded-b-xl border-t border-slate-700">
+        <footer className="flex justify-end p-4 bg-slate-50 dark:bg-slate-900/50 rounded-b-xl border-t border-slate-200 dark:border-slate-700">
           {footer}
         </footer>
       </div>
@@ -69,17 +71,17 @@ const LoginScreen = ({ onLoginSuccess, showToast, authConfig, schoolConfig }) =>
     <div className="min-h-screen w-full flex items-center justify-center login-bg p-4">
       <div className="w-full max-w-sm glass-panel rounded-2xl p-8 shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">{schoolConfig.name}</h1>
-          <p className="text-slate-400 mt-1">Sistem Presensi Digital {schoolConfig.year}</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{schoolConfig.name}</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-1">Sistem Presensi Digital {schoolConfig.year}</p>
         </div>
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="username">Username</label>
-            <input type="text" id="username" value={loginForm.user} onChange={e => setLoginForm(f => ({ ...f, user: e.target.value }))} className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white" placeholder="admin"/>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" htmlFor="username">Username</label>
+            <input type="text" id="username" value={loginForm.user} onChange={e => setLoginForm(f => ({ ...f, user: e.target.value }))} className="w-full bg-white/50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white" placeholder="admin"/>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2" htmlFor="password">Password</label>
-            <input type="password" id="password" value={loginForm.pass} onChange={e => setLoginForm(f => ({ ...f, pass: e.target.value }))} className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white" placeholder="••••••••"/>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2" htmlFor="password">Password</label>
+            <input type="password" id="password" value={loginForm.pass} onChange={e => setLoginForm(f => ({ ...f, pass: e.target.value }))} className="w-full bg-white/50 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white" placeholder="••••••••"/>
           </div>
           <button type="submit" className="w-full active-gradient text-white font-semibold py-2 rounded-lg">Login</button>
         </form>
@@ -94,6 +96,27 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('theme')) {
+      return localStorage.getItem('theme') as Theme;
+    }
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove(theme === 'dark' ? 'light' : 'dark');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
+
   const { database, auth, school, defaults } = APP_CONFIG;
   
   const supabase = useMemo(() => {
@@ -249,7 +272,6 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
   
-  // CRUD Handlers
   const openModal = (type: 'class' | 'student' | 'assignment', item: ClassData | Student | Assignment | null = null) => {
     setEditingItem(item);
     if (item) {
@@ -313,8 +335,7 @@ const App: React.FC = () => {
       setIsSyncing(false);
     }
   };
-
-  // Bulk Upload Handlers
+  
   const handleFileParse = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -333,8 +354,7 @@ const App: React.FC = () => {
                 name: String(row.nama || '').trim(),
                 nis: String(row.nis || '').trim(),
                 nisn: String(row.nisn || '').trim(),
-            })).filter(s => s.name); // Filter out rows without a name
-
+            })).filter(s => s.name); 
             if(students.length === 0){
                 showToast('File tidak mengandung data siswa atau format kolom salah. Gunakan kolom: nama, nis, nisn.', 'error');
                 return;
@@ -361,12 +381,10 @@ const App: React.FC = () => {
 
         showToast(`${parsedStudents.length} siswa berhasil diunggah!`, 'success');
         await fetchFromCloud();
-        // Reset and close modal
         setShowBulkUploadModal(false);
         setParsedStudents([]);
         setUploadFileName('');
         if(fileInputRef.current) fileInputRef.current.value = '';
-
     } catch (err: any) {
         showToast(`Gagal mengunggah massal: ${err.message}`, 'error');
     } finally {
@@ -378,9 +396,6 @@ const App: React.FC = () => {
     const headers = "nama,nis,nisn";
     const blob = new Blob([headers], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
-    if (link.href) {
-        URL.revokeObjectURL(link.href);
-    }
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
     link.setAttribute("download", "template_unggah_siswa.csv");
@@ -399,10 +414,10 @@ const App: React.FC = () => {
     
     return (
     <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
-        <h2 className="text-2xl font-bold text-white mb-6">Manajemen & Pengaturan</h2>
-        <div className="flex border-b border-slate-700 mb-6">
+        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Manajemen & Pengaturan</h2>
+        <div className="flex border-b border-slate-200 dark:border-slate-700 mb-6">
             {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
-                <button key={tab} onClick={() => setAdminTab(tab)} className={`px-4 py-2 font-semibold text-sm ${adminTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>
+                <button key={tab} onClick={() => setAdminTab(tab)} className={`px-4 py-2 font-semibold text-sm ${adminTab === tab ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-500 dark:text-slate-400'}`}>
                     {tab}
                 </button>
             ))}
@@ -411,26 +426,26 @@ const App: React.FC = () => {
         {adminTab === 'Kelas' && (
             <div>
                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-slate-200">Daftar Kelas</h3>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Daftar Kelas</h3>
                     <button onClick={() => openModal('class')} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">Tambah Kelas</button>
                 </div>
-                <div className="dark-card rounded-xl p-4">
+                <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                      <table className="min-w-full">
-                        <thead className="border-b border-slate-700">
+                        <thead className="border-b border-slate-200 dark:border-slate-700">
                            <tr>
-                                <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Nama Kelas</th>
-                                <th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Jadwal (Hari)</th>
-                                <th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th>
+                                <th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Kelas</th>
+                                <th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Jadwal (Hari)</th>
+                                <th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th>
                            </tr>
                         </thead>
                         <tbody>
                             {classes.map(c => (
-                            <tr key={c.id} className="border-t border-slate-800">
-                                <td className="py-3 pr-4 text-slate-200 font-medium">{c.name}</td>
-                                <td className="py-3 px-4 text-slate-300">{c.schedule?.map(d => DAY_NAMES[d].slice(0,3)).join(', ') || 'N/A'}</td>
+                            <tr key={c.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{c.name}</td>
+                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{c.schedule?.map(d => DAY_NAMES[d].slice(0,3)).join(', ') || 'N/A'}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
-                                    <button onClick={() => openModal('class', c)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
-                                    <button onClick={() => handleDelete('class', c.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
+                                    <button onClick={() => openModal('class', c)} className="px-3 py-1 text-xs rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600">Edit</button>
+                                    <button onClick={() => handleDelete('class', c.id)} className="px-3 py-1 text-xs rounded-md bg-rose-100 text-rose-700 dark:bg-rose-800 dark:text-rose-200 hover:bg-rose-200 dark:hover:bg-rose-700">Hapus</button>
                                 </td>
                             </tr>
                             ))}
@@ -444,8 +459,8 @@ const App: React.FC = () => {
             <div>
                  <div className="flex justify-between items-center mb-4 gap-4 flex-wrap">
                      <div className="flex-1 min-w-[200px]">
-                        <label htmlFor="class-selector" className="text-sm font-medium text-slate-400 block mb-1">Pilih Kelas</label>
-                        <select id="class-selector" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm">
+                        <label htmlFor="class-selector" className="text-sm font-medium text-slate-600 dark:text-slate-400 block mb-1">Pilih Kelas</label>
+                        <select id="class-selector" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-200">
                             <option value="" disabled>-- Pilih Kelas --</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
@@ -459,22 +474,22 @@ const App: React.FC = () => {
                         </button>
                     </div>
                 </div>
-                <div className="dark-card rounded-xl p-4">
+                <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <table className="min-w-full">
-                        <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
+                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">NIS</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
                         <tbody>
                             {adminSelectedClass?.students.map(s => (
-                            <tr key={s.id} className="border-t border-slate-800">
-                                <td className="py-3 pr-4 text-slate-200 font-medium">{s.name}</td>
-                                <td className="py-3 px-4 text-slate-300">{s.nis}</td>
+                            <tr key={s.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{s.name}</td>
+                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{s.nis}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
-                                    <button onClick={() => openModal('student', s)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
-                                    <button onClick={() => handleDelete('student', s.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
+                                    <button onClick={() => openModal('student', s)} className="px-3 py-1 text-xs rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600">Edit</button>
+                                    <button onClick={() => handleDelete('student', s.id)} className="px-3 py-1 text-xs rounded-md bg-rose-100 text-rose-700 dark:bg-rose-800 dark:text-rose-200 hover:bg-rose-200 dark:hover:bg-rose-700">Hapus</button>
                                 </td>
                             </tr>))}
                         </tbody>
                     </table>
-                    {(!adminSelectedClassId || adminSelectedClass?.students.length === 0) && (<p className="text-center text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat siswa.' : 'Belum ada siswa di kelas ini.'}</p>)}
+                    {(!adminSelectedClassId || adminSelectedClass?.students.length === 0) && (<p className="text-center text-slate-400 dark:text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat siswa.' : 'Belum ada siswa di kelas ini.'}</p>)}
                 </div>
             </div>
         )}
@@ -483,8 +498,8 @@ const App: React.FC = () => {
             <div>
                  <div className="flex justify-between items-center mb-4 gap-4">
                      <div className="flex-1">
-                        <label htmlFor="class-selector-tugas" className="text-sm font-medium text-slate-400 block mb-1">Pilih Kelas</label>
-                        <select id="class-selector-tugas" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm">
+                        <label htmlFor="class-selector-tugas" className="text-sm font-medium text-slate-600 dark:text-slate-400 block mb-1">Pilih Kelas</label>
+                        <select id="class-selector-tugas" value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-2 text-sm text-slate-800 dark:text-slate-200">
                             <option value="" disabled>-- Pilih Kelas --</option>
                             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
@@ -495,22 +510,22 @@ const App: React.FC = () => {
                         </button>
                     </div>
                 </div>
-                <div className="dark-card rounded-xl p-4">
+                <div className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
                     <table className="min-w-full">
-                        <thead className="border-b border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-400">Aksi</th></tr></thead>
+                        <thead className="border-b border-slate-200 dark:border-slate-700"><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Judul Tugas</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Batas Waktu</th><th className="py-2 pl-4 text-right text-sm font-semibold text-slate-500 dark:text-slate-400">Aksi</th></tr></thead>
                         <tbody>
                             {adminSelectedClass?.assignments?.map(a => (
-                            <tr key={a.id} className="border-t border-slate-800">
-                                <td className="py-3 pr-4 text-slate-200 font-medium">{a.title}</td>
-                                <td className="py-3 px-4 text-slate-300">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                            <tr key={a.id} className="border-t border-slate-100 dark:border-slate-900">
+                                <td className="py-3 pr-4 text-slate-800 dark:text-slate-200 font-medium">{a.title}</td>
+                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
                                 <td className="py-3 pl-4 text-right space-x-2">
-                                    <button onClick={() => openModal('assignment', a)} className="px-3 py-1 text-xs rounded-md bg-slate-700 hover:bg-slate-600">Edit</button>
-                                    <button onClick={() => handleDelete('assignment', a.id)} className="px-3 py-1 text-xs rounded-md bg-rose-800 hover:bg-rose-700">Hapus</button>
+                                    <button onClick={() => openModal('assignment', a)} className="px-3 py-1 text-xs rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600">Edit</button>
+                                    <button onClick={() => handleDelete('assignment', a.id)} className="px-3 py-1 text-xs rounded-md bg-rose-100 text-rose-700 dark:bg-rose-800 dark:text-rose-200 hover:bg-rose-200 dark:hover:bg-rose-700">Hapus</button>
                                 </td>
                             </tr>))}
                         </tbody>
                     </table>
-                    {(!adminSelectedClassId || adminSelectedClass?.assignments?.length === 0) && (<p className="text-center text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat tugas.' : 'Belum ada tugas di kelas ini.'}</p>)}
+                    {(!adminSelectedClassId || adminSelectedClass?.assignments?.length === 0) && (<p className="text-center text-slate-400 dark:text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat tugas.' : 'Belum ada tugas di kelas ini.'}</p>)}
                 </div>
             </div>
         )}
@@ -518,19 +533,19 @@ const App: React.FC = () => {
         {adminTab === 'Database' && (
              <div className="space-y-6">
                 <div>
-                    <h3 className="text-lg font-semibold text-slate-200 mb-2">Status Koneksi Database</h3>
-                    <div className={`p-4 rounded-lg border ${supabase ? 'bg-emerald-900/50 border-emerald-500/30' : 'bg-rose-900/50 border-rose-500/30'}`}>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Status Koneksi Database</h3>
+                    <div className={`p-4 rounded-lg border ${supabase ? 'bg-emerald-50 dark:bg-emerald-900/50 border-emerald-200 dark:border-emerald-500/30' : 'bg-rose-50 dark:bg-rose-900/50 border-rose-200 dark:border-rose-500/30'}`}>
                     {supabase ? (
-                        <div className="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><div><p className="font-semibold text-emerald-300">Terhubung ke Supabase Cloud</p><p className="text-sm text-slate-400">Aplikasi berhasil terhubung ke database.</p></div></div>
+                        <div className="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><div><p className="font-semibold text-emerald-800 dark:text-emerald-300">Terhubung ke Supabase Cloud</p><p className="text-sm text-slate-600 dark:text-slate-400">Aplikasi berhasil terhubung ke database.</p></div></div>
                     ) : (
-                        <div className="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><div><p className="font-semibold text-rose-300">Konfigurasi Database Belum Lengkap</p><p className="text-sm text-slate-400">Aplikasi berjalan dalam mode lokal (tanpa database).</p></div></div>
+                        <div className="flex items-center gap-3"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-rose-500 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg><div><p className="font-semibold text-rose-800 dark:text-rose-300">Konfigurasi Database Belum Lengkap</p><p className="text-sm text-slate-600 dark:text-slate-400">Aplikasi berjalan dalam mode lokal (tanpa database).</p></div></div>
                     )}
                     </div>
                 </div>
                 {supabase && classes.length === 0 && !isLoading && (
                     <div>
-                    <h3 className="text-lg font-semibold text-slate-200 mb-2">Isi Data Awal</h3>
-                    <div className="p-4 rounded-lg border bg-slate-800 border-slate-700"><p className="text-slate-300 mb-4">Database Anda kosong. Klik untuk mengisi data awal (4 kelas & siswanya).</p>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Isi Data Awal</h3>
+                    <div className="p-4 rounded-lg border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"><p className="text-slate-600 dark:text-slate-300 mb-4">Database Anda kosong. Klik untuk mengisi data awal (4 kelas & siswanya).</p>
                         <button onClick={seedInitialData} disabled={isSyncing} className="w-full justify-center flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50">
                         {isSyncing ? (<svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6-10a1 1 0 011-1h2a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /><path d="M4 5a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2-2V5z" /></svg>)}
                         {isSyncing ? 'Memproses...' : 'Isi Database Dengan Data Awal'}
@@ -544,17 +559,17 @@ const App: React.FC = () => {
   }
 
   const DailyView = () => {
-    if(!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk memulai.</div>
+    if(!activeClass) return <div className="p-6 text-slate-500 dark:text-slate-400">Pilih kelas untuk memulai.</div>
     const dateStr = formatDate(currentDate);
 
     return (
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
             <div className="flex items-center justify-between mb-6 mobile-stack gap-4">
-                <div><h2 className="text-2xl font-bold text-white">Presensi Harian</h2><p className="text-slate-400">{DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+                <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Presensi Harian</h2><p className="text-slate-500 dark:text-slate-400">{DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
-                    <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
-                    <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 text-sm rounded-md bg-slate-700 hover:bg-slate-600">Hari Ini</button>
-                    <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
+                    <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
+                    <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 text-sm rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200">Hari Ini</button>
+                    <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg></button>
                 </div>
             </div>
 
@@ -562,13 +577,13 @@ const App: React.FC = () => {
             {activeClass.students.map((student, idx) => {
                 const status = attendance[student.id]?.[dateStr] || 'H';
                 return(
-                <div key={student.id} className="dark-card p-3 rounded-lg flex items-center justify-between flex-wrap gap-3">
+                <div key={student.id} className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-lg flex items-center justify-between flex-wrap gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-                        <span className="text-slate-400 w-6 text-center">{idx + 1}.</span>
-                        <p className="font-semibold text-slate-200 truncate">{student.name}</p>
+                        <span className="text-slate-500 dark:text-slate-400 w-6 text-center">{idx + 1}.</span>
+                        <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">{student.name}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(s => (<button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} disabled={isFutureDate(currentDate)} className={`h-9 w-9 flex items-center justify-center text-sm font-bold rounded-md transition-all ${status === s ? DARK_STATUS_COLORS[s] : 'bg-slate-800 hover:bg-slate-700'} ${isFutureDate(currentDate) ? 'opacity-50 cursor-not-allowed' : ''}`}>{s}</button>))}
+                        {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(s => (<button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} disabled={isFutureDate(currentDate)} className={`h-9 w-9 flex items-center justify-center text-sm font-bold rounded-md transition-all ${status === s ? DARK_STATUS_COLORS[s] : 'bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'} ${isFutureDate(currentDate) ? 'opacity-50 cursor-not-allowed' : ''}`}>{s}</button>))}
                     </div>
                 </div>)
             })}
@@ -578,7 +593,7 @@ const App: React.FC = () => {
   }
 
   const AssignmentsView = () => {
-    if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat tugas.</div>;
+    if (!activeClass) return <div className="p-6 text-slate-500 dark:text-slate-400">Pilih kelas untuk melihat tugas.</div>;
     
     const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
       if(!supabase) return;
@@ -591,7 +606,6 @@ const App: React.FC = () => {
     const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
         if(!supabase) return;
         setIsSyncing(true);
-        // We must also set is_submitted to true if a score is being added for a previously unsubmitted task.
         const { error } = await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
         if (error) { showToast('Gagal menyimpan nilai', 'error'); } else { showToast('Nilai berhasil disimpan'); fetchFromCloud(); }
         setIsSyncing(false);
@@ -599,31 +613,31 @@ const App: React.FC = () => {
 
     return (
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
-            <h2 className="text-2xl font-bold text-white mb-1">Daftar Tugas</h2>
-            <p className="text-slate-400 mb-6">Status pengumpulan tugas kelas {activeClass.name}</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Daftar Tugas</h2>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">Status pengumpulan tugas kelas {activeClass.name}</p>
             {activeClass.assignments && activeClass.assignments.length > 0 ? (
                 <div className="space-y-8">
                 {activeClass.assignments.map(a => (
-                    <div key={a.id} className="dark-card rounded-xl p-4 sm:p-6">
-                        <div className="border-b border-slate-700 pb-4 mb-4">
-                            <h3 className="text-lg font-semibold text-white">{a.title}</h3>
-                            <p className="text-sm text-slate-400">Batas Waktu: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
-                            {a.description && <p className="text-sm text-slate-300 mt-2">{a.description}</p>}
+                    <div key={a.id} className="content-card bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 sm:p-6">
+                        <div className="border-b border-slate-200 dark:border-slate-700 pb-4 mb-4">
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{a.title}</h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">Batas Waktu: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
+                            {a.description && <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">{a.description}</p>}
                         </div>
                         <div className="overflow-x-auto">
                             <table className="min-w-full">
-                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-400">Diangkat</th><th className="py-2 pl-4 text-center text-sm font-semibold text-slate-400">Nilai</th></tr></thead>
+                                <thead><tr><th className="py-2 pr-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">No</th><th className="py-2 px-4 text-left text-sm font-semibold text-slate-500 dark:text-slate-400">Nama Siswa</th><th className="py-2 px-4 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">Diangkat</th><th className="py-2 pl-4 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">Nilai</th></tr></thead>
                                 <tbody>
                                     {activeClass.students.map((s, idx) => {
                                         const sub = a.submissions[s.id]; const isSub = sub?.isSubmitted || false;
                                         return (
-                                          <tr key={s.id} className="border-t border-slate-800">
-                                            <td className="py-2 pr-4 text-slate-400 text-sm">{idx + 1}.</td>
-                                            <td className="py-2 px-4 text-slate-200 font-medium text-sm">{s.name}</td>
+                                          <tr key={s.id} className="border-t border-slate-100 dark:border-slate-700/50">
+                                            <td className="py-2 pr-4 text-slate-500 dark:text-slate-400 text-sm">{idx + 1}.</td>
+                                            <td className="py-2 px-4 text-slate-800 dark:text-slate-200 font-medium text-sm">{s.name}</td>
                                             <td className="py-2 px-4 text-center">
                                                 <button 
                                                     onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} 
-                                                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-indigo-500 ${isSub ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-700 text-transparent hover:bg-slate-600 border border-slate-500'}`}
+                                                    className={`w-7 h-7 flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 focus:ring-indigo-500 ${isSub ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700 text-transparent hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500'}`}
                                                     aria-label={`Tandai tugas ${s.name} sebagai ${isSub ? 'belum diangkat' : 'sudah diangkat'}`}
                                                     aria-checked={isSub}
                                                     role="checkbox"
@@ -642,7 +656,7 @@ const App: React.FC = () => {
                                                     onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)}
                                                     disabled={!isSub}
                                                     placeholder={isSub ? '...' : '–'}
-                                                    className="w-20 bg-slate-700 border border-slate-600 rounded-md px-2 py-1 text-sm text-white text-center transition-colors disabled:bg-slate-800 disabled:border-slate-700 disabled:cursor-not-allowed placeholder:text-slate-500"
+                                                    className="w-20 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md px-2 py-1 text-sm text-slate-800 dark:text-white text-center transition-colors disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:border-slate-300 dark:disabled:border-slate-700 disabled:cursor-not-allowed placeholder:text-slate-400 dark:placeholder:text-slate-500"
                                                 />
                                             </td>
                                           </tr>)
@@ -658,7 +672,7 @@ const App: React.FC = () => {
 };
   
   const ReportsView = () => {
-    if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat laporan.</div>;
+    if (!activeClass) return <div className="p-6 text-slate-500 dark:text-slate-400">Pilih kelas untuk melihat laporan.</div>;
     
     const dates = useMemo(() => {
         if (reportTab === 'Daily') return [currentDate];
@@ -690,38 +704,38 @@ const App: React.FC = () => {
     return (
       <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
-          <div><h2 className="text-2xl font-bold text-white">Laporan Kehadiran</h2><p className="text-slate-400">Rekapitulasi Presensi {activeClass.name}</p></div>
+          <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Laporan Kehadiran</h2><p className="text-slate-500 dark:text-slate-400">Rekapitulasi Presensi {activeClass.name}</p></div>
           <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>Print Laporan</button>
         </div>
-        <div className="flex items-center justify-between border-b border-slate-700 mb-4 print-hide">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-4 print-hide">
           <div className="flex">
-            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-slate-400'}`}>{tab.replace('Daily', 'Harian').replace('Weekly', 'Mingguan').replace('Monthly', 'Bulanan')}</button>))}
+            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-500 dark:text-slate-400'}`}>{tab.replace('Daily', 'Harian').replace('Weekly', 'Mingguan').replace('Monthly', 'Bulanan')}</button>))}
           </div>
           {reportTab === 'Daily' && (
             <div className="flex items-center gap-2">
-                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button>
-                <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 text-sm rounded-md bg-slate-700 hover:bg-slate-600">Hari Ini</button>
-                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button>
+                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button>
+                <button onClick={() => setCurrentDate(new Date())} className="px-3 py-1.5 text-sm rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200">Hari Ini</button>
+                <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button>
             </div>
           )}
-          {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-400">Minggu Ini</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-700 hover:bg-slate-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
-          {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-slate-800 border border-slate-700 rounded-md px-3 py-1.5 text-sm">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
+          {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-500 dark:text-slate-400">Minggu Ini</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
+          {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
         </div>
         <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p className="text-md text-gray-700">LAPORAN PRESENSI KELAS: {activeClass.name} - {reportTitle}</p><p className="text-sm text-gray-600">{school.periodName} {school.year}</p></div>
         <div className="overflow-auto flex-1">
-          <table className="min-w-full divide-y divide-slate-700 border-collapse">
-            <thead className="bg-slate-800 sticky top-0">
+          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
+            <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
               <tr>
-                <th className="px-3 py-3 text-left text-xs font-medium text-slate-400 uppercase w-10">No</th><th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
-                {dates.map(d => (<th key={d.toISOString()} className="px-2 py-3 text-center text-xs font-medium text-slate-400 uppercase"><div>{DAY_NAMES[d.getDay()].substring(0,3)}</div><div>{d.getDate()}</div></th>))}
-                {(['H', 'S', 'I', 'A'] as const).map(s => <th key={s} className="px-2 py-3 text-center text-xs font-bold uppercase w-12">{s}</th>)}
+                <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-10">No</th><th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
+                {dates.map(d => (<th key={d.toISOString()} className="px-2 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase"><div>{DAY_NAMES[d.getDay()].substring(0,3)}</div><div>{d.getDate()}</div></th>))}
+                {(['H', 'S', 'I', 'A'] as const).map(s => <th key={s} className="px-2 py-3 text-center text-xs font-bold uppercase w-12 text-slate-600 dark:text-slate-300">{s}</th>)}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {activeClass.students.map((s, idx) => (
-                <tr key={s.id}><td className="px-3 py-2 text-sm text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-200">{s.name}</td>
-                  {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${DARK_STATUS_COLORS[status]}`}>{status}</td>) })}
-                  {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold">{totals[s.id][st]}</td>)}
+                <tr key={s.id}><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
+                  {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${status === 'H' ? 'text-emerald-700 dark:text-emerald-400' : status === 'S' ? 'text-blue-700 dark:text-blue-400' : status === 'I' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{status}</td>) })}
+                  {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{totals[s.id][st]}</td>)}
                 </tr>))}
             </tbody>
           </table>
@@ -731,7 +745,7 @@ const App: React.FC = () => {
   }
 
   const TaskReportView = () => {
-    if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat rekap tugas.</div>;
+    if (!activeClass) return <div className="p-6 text-slate-500 dark:text-slate-400">Pilih kelas untuk melihat rekap tugas.</div>;
     
     const assignments = activeClass.assignments || [];
 
@@ -739,8 +753,8 @@ const App: React.FC = () => {
       <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
           <div>
-            <h2 className="text-2xl font-bold text-white">Rekapitulasi Nilai Tugas</h2>
-            <p className="text-slate-400">Laporan Nilai untuk Kelas {activeClass.name}</p>
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rekapitulasi Nilai Tugas</h2>
+            <p className="text-slate-500 dark:text-slate-400">Laporan Nilai untuk Kelas {activeClass.name}</p>
           </div>
           <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
@@ -756,27 +770,27 @@ const App: React.FC = () => {
 
         {assignments.length > 0 ? (
           <div className="overflow-auto flex-1">
-            <table className="min-w-full divide-y divide-slate-700 border-collapse">
-              <thead className="bg-slate-800 sticky top-0">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
+              <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                 <tr>
-                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-400 uppercase w-10">No</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-10">No</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
                   {assignments.map(a => (
-                    <th key={a.id} className="px-2 py-3 text-center text-xs font-medium text-slate-400 uppercase w-24 truncate" title={a.title}>
+                    <th key={a.id} className="px-2 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-24 truncate" title={a.title}>
                       {a.title}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeClass.students.map((s, idx) => (
                   <tr key={s.id}>
-                    <td className="px-3 py-2 text-sm text-slate-400">{idx + 1}</td>
-                    <td className="px-4 py-2 text-sm font-medium text-slate-200">{s.name}</td>
+                    <td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                     {assignments.map(a => {
                       const score = a.submissions[s.id]?.score || '-';
                       return (
-                        <td key={a.id} className="px-2 py-2 text-center text-sm font-semibold">
+                        <td key={a.id} className="px-2 py-2 text-center text-sm font-semibold text-slate-700 dark:text-slate-300">
                           {score}
                         </td>
                       );
@@ -795,26 +809,38 @@ const App: React.FC = () => {
     );
   }
 
+  const ThemeToggle = ({ theme, toggleTheme }) => (
+    <button onClick={toggleTheme} className="w-full flex items-center justify-start gap-3 px-3 py-2 rounded-md text-sm font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800" aria-label="Toggle theme">
+        {theme === 'light' ? ( <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 100 2h1z" clipRule="evenodd" /></svg>)}
+        <span>{theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}</span>
+    </button>
+  );
+
   const NotificationArea = () => (<div className="fixed bottom-4 right-4 z-50 space-y-2 print-hide">{notifications.map(n => (<div key={n.id} className={`px-4 py-2 rounded-md text-sm font-semibold text-white shadow-lg view-transition ${n.type === 'success' ? 'bg-emerald-600' : n.type === 'error' ? 'bg-rose-600' : 'bg-blue-600'}`}>{n.message}</div>))}</div>)
   
-  if (isLoading) return <div className="min-h-screen w-full flex items-center justify-center text-slate-400">Memuat Aplikasi...</div>;
+  if (isLoading) return <div className="min-h-screen w-full flex items-center justify-center text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900">Memuat Aplikasi...</div>;
   if (!isAuthenticated) return <><LoginScreen onLoginSuccess={() => { setIsAuthenticated(true); setIsLoading(true); }} showToast={showToast} authConfig={auth} schoolConfig={school}/><NotificationArea /></>;
 
   return (
-    <div className="h-screen w-screen bg-slate-900 text-slate-200 flex relative md:static">
+    <div className="h-screen w-screen bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex relative md:static">
       {isSidebarOpen && (<div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-20 md:hidden"></div>)}
-      <nav className={`fixed inset-y-0 left-0 z-30 w-64 glass-panel flex-shrink-0 p-4 space-y-2 overflow-y-auto print-hide transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex justify-between items-center"><h2 className="text-xl font-bold px-2">{school.name}</h2><button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 rounded-full hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-        <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</h3>
-            {MENU_ITEMS.map(({ view: v, label }) => (
-            <button key={v} onClick={() => { setView(v); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-3 nav-link ${view === v ? 'bg-slate-700 text-white active' : 'text-slate-400 hover:bg-slate-800'}`}>
-                {label}
-            </button>
-        ))}</div>
-        <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kelas</h3>{classes.map(c => (<button key={c.id} onClick={() => { setActiveClassId(c.id); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{c.name}</button>))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
+      <nav className={`fixed inset-y-0 left-0 z-30 w-64 glass-panel flex-shrink-0 p-4 flex flex-col overflow-y-auto print-hide transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex-shrink-0">
+          <div className="flex justify-between items-center"><h2 className="text-xl font-bold px-2 text-slate-800 dark:text-slate-100">{school.name}</h2><button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div>
+          <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 dark:text-slate-500 uppercase tracking-wider mb-2">Menu</h3>
+              {MENU_ITEMS.map(({ view: v, label }) => (
+              <button key={v} onClick={() => { setView(v); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-3 nav-link ${view === v ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white active' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>
+                  {label}
+              </button>
+          ))}</div>
+          <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kelas</h3>{classes.map(c => (<button key={c.id} onClick={() => { setActiveClassId(c.id); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'}`}>{c.name}</button>))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
+        </div>
+        <div className="mt-auto pt-4">
+          <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+        </div>
       </nav>
       <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="md:hidden flex items-center justify-between p-2 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800 print-hide sticky top-0 z-10"><button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button><h2 className="text-lg font-semibold text-slate-200">{activeClass?.name || school.name}</h2><div className="w-8"></div></header>
+        <header className="md:hidden flex items-center justify-between p-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 print-hide sticky top-0 z-10"><button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 dark:text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button><h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{activeClass?.name || school.name}</h2><div className="w-8"></div></header>
         {view === 'Daily' && <DailyView />}
         {view === 'Reports' && <ReportsView />}
         {view === 'Assignments' && <AssignmentsView />}
@@ -826,54 +852,49 @@ const App: React.FC = () => {
         isOpen={!!showModal}
         onClose={() => setShowModal(null)}
         title={`${editingItem ? 'Edit' : 'Tambah'} ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`}
-        footer={<><button onClick={() => setShowModal(null)} className="px-4 py-2 text-sm rounded-md text-slate-300 hover:bg-slate-700">Batal</button><button onClick={handleSave} disabled={isSyncing} className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white font-semibold hover:bg-indigo-500 disabled:opacity-50">{isSyncing ? 'Menyimpan...' : 'Simpan'}</button></>}
+        footer={<><button onClick={() => setShowModal(null)} className="px-4 py-2 text-sm rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Batal</button><button onClick={handleSave} disabled={isSyncing} className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white font-semibold hover:bg-indigo-500 disabled:opacity-50">{isSyncing ? 'Menyimpan...' : 'Simpan'}</button></>}
       >
         {showModal === 'class' && <>
-          <div><label className="text-sm text-slate-300 block mb-1">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData(f => ({...f, className: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
-          <div><label className="text-sm text-slate-300 block mb-1">Jadwal Hari Belajar</label><div className="grid grid-cols-3 sm:grid-cols-4 gap-2">{DAY_NAMES.slice(1, 6).map((day, i) => (<button key={i+1} onClick={() => setAdminFormData(f => ({...f, schedule: f.schedule.includes(i+1) ? f.schedule.filter(d => d !== i+1) : [...f.schedule, i+1]}))} className={`p-2 rounded-md text-sm ${adminFormData.schedule.includes(i+1) ? 'bg-indigo-600 text-white' : 'bg-slate-700'}`}>{day}</button>))}</div></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData(f => ({...f, className: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Jadwal Hari Belajar</label><div className="grid grid-cols-3 sm:grid-cols-4 gap-2">{DAY_NAMES.slice(1, 6).map((day, i) => (<button key={i+1} onClick={() => setAdminFormData(f => ({...f, schedule: f.schedule.includes(i+1) ? f.schedule.filter(d => d !== i+1) : [...f.schedule, i+1]}))} className={`p-2 rounded-md text-sm ${adminFormData.schedule.includes(i+1) ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}>{day}</button>))}</div></div>
         </>}
         {showModal === 'student' && <>
-          <div><label className="text-sm text-slate-300 block mb-1">Nama Siswa</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData(f => ({...f, studentName: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
-          <div><label className="text-sm text-slate-300 block mb-1">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData(f => ({...f, studentNis: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
-          <div><label className="text-sm text-slate-300 block mb-1">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData(f => ({...f, studentNisn: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Nama Siswa</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData(f => ({...f, studentName: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData(f => ({...f, studentNis: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData(f => ({...f, studentNisn: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
         </>}
         {showModal === 'assignment' && <>
-          <div><label className="text-sm text-slate-300 block mb-1">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData(f => ({...f, assignmentTitle: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
-          <div><label className="text-sm text-slate-300 block mb-1">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData(f => ({...f, assignmentDesc: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" rows={3}></textarea></div>
-          <div><label className="text-sm text-slate-300 block mb-1">Batas Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData(f => ({...f, assignmentDueDate: e.target.value}))} className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData(f => ({...f, assignmentTitle: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData(f => ({...f, assignmentDesc: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" rows={3}></textarea></div>
+          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Batas Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData(f => ({...f, assignmentDueDate: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
         </>}
       </Modal>
 
       <Modal
         isOpen={showBulkUploadModal}
         size="lg"
-        onClose={() => {
-            setShowBulkUploadModal(false);
-            setParsedStudents([]);
-            setUploadFileName('');
-            if(fileInputRef.current) fileInputRef.current.value = '';
-        }}
+        onClose={() => {setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = '';}}
         title={`Unggah Siswa Massal ke Kelas: ${classes.find(c => c.id === adminSelectedClassId)?.name || ''}`}
         footer={<>
-            <button onClick={() => { setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="px-4 py-2 text-sm rounded-md text-slate-300 hover:bg-slate-700">Batal</button>
+            <button onClick={() => { setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="px-4 py-2 text-sm rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Batal</button>
             <button onClick={handleBulkSave} disabled={isSyncing || parsedStudents.length === 0} className="px-4 py-2 text-sm rounded-md bg-sky-600 text-white font-semibold hover:bg-sky-500 disabled:opacity-50">
                 {isSyncing ? 'Menyimpan...' : `Simpan ${parsedStudents.length} Siswa`}
             </button>
         </>}
       >
         <div className="space-y-4">
-            <div className="p-3 rounded-md bg-slate-900/50 border border-slate-700 text-sm text-slate-300">
-                <p className="font-semibold mb-2">Petunjuk:</p>
+            <div className="p-3 rounded-md bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
+                <p className="font-semibold mb-2 text-slate-800 dark:text-slate-200">Petunjuk:</p>
                 <ul className="list-disc list-inside space-y-1">
                     <li>Gunakan file Excel (.xlsx, .xls) atau .csv.</li>
-                    <li>Pastikan file memiliki kolom dengan judul: <code className="bg-slate-700 px-1 rounded">nama</code>, <code className="bg-slate-700 px-1 rounded">nis</code>, dan <code className="bg-slate-700 px-1 rounded">nisn</code>.</li>
+                    <li>Pastikan file memiliki kolom dengan judul: <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nama</code>, <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nis</code>, dan <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nisn</code>.</li>
                     <li>
-                        <button onClick={downloadTemplate} className="text-indigo-400 hover:underline font-semibold">Unduh file template</button> untuk format yang benar.
+                        <button onClick={downloadTemplate} className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">Unduh file template</button> untuk format yang benar.
                     </li>
                 </ul>
             </div>
             <div>
-                <label htmlFor="file-upload" className="w-full cursor-pointer bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-4 rounded-md inline-flex items-center justify-center">
+                <label htmlFor="file-upload" className="w-full cursor-pointer bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-white font-semibold py-2 px-4 rounded-md inline-flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                     {uploadFileName ? `File: ${uploadFileName}` : 'Pilih File Excel...'}
                 </label>
@@ -881,11 +902,11 @@ const App: React.FC = () => {
             </div>
             {parsedStudents.length > 0 && (
                 <div>
-                    <h4 className="font-semibold text-slate-200 mb-2">Pratinjau Data:</h4>
-                    <div className="max-h-60 overflow-y-auto border border-slate-700 rounded-md">
+                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Pratinjau Data:</h4>
+                    <div className="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-md">
                         <table className="min-w-full text-sm">
-                            <thead className="bg-slate-900 sticky top-0"><tr className="text-left"><th className="p-2">Nama</th><th className="p-2">NIS</th><th className="p-2">NISN</th></tr></thead>
-                            <tbody className="divide-y divide-slate-800">
+                            <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0"><tr className="text-left text-slate-600 dark:text-slate-300"><th className="p-2">Nama</th><th className="p-2">NIS</th><th className="p-2">NISN</th></tr></thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                                 {parsedStudents.map((student, index) => (
                                     <tr key={index}><td className="p-2">{student.name}</td><td className="p-2">{student.nis}</td><td className="p-2">{student.nisn}</td></tr>
                                 ))}

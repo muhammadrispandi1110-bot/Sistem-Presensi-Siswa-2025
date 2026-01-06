@@ -3,27 +3,31 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0">
     <title>Sistem Presensi Digital - SMAN 11 Makassar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { color-scheme: dark; }
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: #020617; 
-            color: #f1f5f9;
             -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.3s, color 0.3s;
         }
         
         ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: #e2e8f0; }
+        .dark ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
 
         .glass-panel {
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(241, 245, 249, 0.7);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
@@ -32,13 +36,10 @@
             box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
         }
 
-        .dark-card {
-            background: #0f172a;
-            border: 1px solid #1e293b;
+        .content-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
-        .dark-card:hover {
+        .content-card:hover {
             border-color: #4f46e5;
             transform: translateY(-2px);
         }
@@ -53,10 +54,12 @@
         }
 
         .login-bg {
-            background: radial-gradient(circle at top right, #1e1b4b, #020617);
+            background: radial-gradient(circle at top right, #e0e7ff, #f1f5f9);
+        }
+        .dark .login-bg {
+             background: radial-gradient(circle at top right, #1e1b4b, #020617);
         }
 
-        /* Responsivitas Tabel */
         @media (max-width: 768px) {
             .mobile-hide { display: none !important; }
             .mobile-stack { flex-direction: column !important; }
@@ -91,43 +94,37 @@
 
         /* Print Styles */
         @media print {
-            body {
+            body, .dark body {
                 background-color: white !important;
                 color: black !important;
             }
-            .print-container {
-                display: block !important;
-            }
-            .print-header {
-                 display: block !important;
-            }
-            .print-hide {
-                display: none !important;
-            }
-            main {
-                padding: 0 !important;
-            }
-            table {
-                width: 100%;
-                border-collapse: collapse;
-            }
-            th, td {
-                border: 1px solid #ccc;
-                padding: 6px;
-                font-size: 10px;
-                color: black;
-            }
-            th {
-                background-color: #f2f2f2;
-                font-weight: bold;
-            }
-            .bg-slate-700 { background-color: #f2f2f2 !important; }
+            .print-container { display: block !important; }
+            .print-header { display: block !important; }
+            .print-hide { display: none !important; }
+            main { padding: 0 !important; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ccc; padding: 6px; font-size: 10px; color: black !important; }
+            th { background-color: #f2f2f2 !important; font-weight: bold; }
+            .bg-slate-700, .dark .bg-slate-800, .dark .bg-slate-900 { background-color: #f2f2f2 !important; }
             .text-emerald-400 { color: #10B981 !important; }
             .text-blue-400 { color: #3B82F6 !important; }
             .text-amber-400 { color: #F59E0B !important; }
             .text-rose-400 { color: #F43F5E !important; }
         }
     </style>
+    <script>
+    // Theme loader script to prevent FOUC
+    (function() {
+      try {
+        var theme = localStorage.getItem('theme');
+        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (_) {}
+    })();
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -142,7 +139,7 @@
 }
 </script>
 </head>
-<body class="overflow-x-hidden">
+<body class="overflow-x-hidden bg-slate-100 dark:bg-slate-900">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>
