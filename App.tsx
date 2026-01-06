@@ -24,7 +24,8 @@ const MENU_ITEMS: { view: ViewType; label: string }[] = [
   { view: 'Admin', label: 'Admin' },
   { view: 'Daily', label: 'Presensi' },
   { view: 'Assignments', label: 'Tugas' },
-  { view: 'Reports', label: 'Laporan' },
+  { view: 'Reports', label: 'Laporan Presensi' },
+  { view: 'TaskReports', label: 'Rekap Tugas' },
 ];
 
 type ParsedStudent = Omit<Student, 'id'>;
@@ -590,7 +591,8 @@ const App: React.FC = () => {
     const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
         if(!supabase) return;
         setIsSyncing(true);
-        const { error } = await supabase.from('submissions').update({ score }).match({ assignment_id: assignmentId, student_id: studentId });
+        // We must also set is_submitted to true if a score is being added for a previously unsubmitted task.
+        const { error } = await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
         if (error) { showToast('Gagal menyimpan nilai', 'error'); } else { showToast('Nilai berhasil disimpan'); fetchFromCloud(); }
         setIsSyncing(false);
     };
@@ -728,6 +730,71 @@ const App: React.FC = () => {
     );
   }
 
+  const TaskReportView = () => {
+    if (!activeClass) return <div className="p-6 text-slate-400">Pilih kelas untuk melihat rekap tugas.</div>;
+    
+    const assignments = activeClass.assignments || [];
+
+    return (
+      <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
+        <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
+          <div>
+            <h2 className="text-2xl font-bold text-white">Rekapitulasi Nilai Tugas</h2>
+            <p className="text-slate-400">Laporan Nilai untuk Kelas {activeClass.name}</p>
+          </div>
+          <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
+            Print Rekap
+          </button>
+        </div>
+        
+        <div className="hidden print-header text-center my-4">
+          <h2 className="text-xl font-bold text-black">{school.name}</h2>
+          <p className="text-md text-gray-700">REKAPITULASI NILAI TUGAS KELAS: {activeClass.name}</p>
+          <p className="text-sm text-gray-600">{school.periodName} {school.year}</p>
+        </div>
+
+        {assignments.length > 0 ? (
+          <div className="overflow-auto flex-1">
+            <table className="min-w-full divide-y divide-slate-700 border-collapse">
+              <thead className="bg-slate-800 sticky top-0">
+                <tr>
+                  <th className="px-3 py-3 text-left text-xs font-medium text-slate-400 uppercase w-10">No</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
+                  {assignments.map(a => (
+                    <th key={a.id} className="px-2 py-3 text-center text-xs font-medium text-slate-400 uppercase w-24 truncate" title={a.title}>
+                      {a.title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {activeClass.students.map((s, idx) => (
+                  <tr key={s.id}>
+                    <td className="px-3 py-2 text-sm text-slate-400">{idx + 1}</td>
+                    <td className="px-4 py-2 text-sm font-medium text-slate-200">{s.name}</td>
+                    {assignments.map(a => {
+                      const score = a.submissions[s.id]?.score || '-';
+                      return (
+                        <td key={a.id} className="px-2 py-2 text-center text-sm font-semibold">
+                          {score}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center text-slate-500 py-10">
+            <p>Belum ada tugas yang dibuat untuk kelas ini.</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const NotificationArea = () => (<div className="fixed bottom-4 right-4 z-50 space-y-2 print-hide">{notifications.map(n => (<div key={n.id} className={`px-4 py-2 rounded-md text-sm font-semibold text-white shadow-lg view-transition ${n.type === 'success' ? 'bg-emerald-600' : n.type === 'error' ? 'bg-rose-600' : 'bg-blue-600'}`}>{n.message}</div>))}</div>)
   
   if (isLoading) return <div className="min-h-screen w-full flex items-center justify-center text-slate-400">Memuat Aplikasi...</div>;
@@ -751,6 +818,7 @@ const App: React.FC = () => {
         {view === 'Daily' && <DailyView />}
         {view === 'Reports' && <ReportsView />}
         {view === 'Assignments' && <AssignmentsView />}
+        {view === 'TaskReports' && <TaskReportView />}
         {view === 'Admin' && <AdminView />}
       </main>
       <NotificationArea />
