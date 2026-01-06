@@ -19,6 +19,13 @@ interface Notification {
   id: number;
 }
 
+const MENU_ITEMS: { view: ViewType; label: string }[] = [
+  { view: 'Admin', label: 'Admin' },
+  { view: 'Daily', label: 'Presensi' },
+  { view: 'Assignments', label: 'Tugas' },
+  { view: 'Reports', label: 'Laporan' },
+];
+
 // Komponen Modal generik
 const Modal = ({ isOpen, onClose, title, children, footer }) => {
   if (!isOpen) return null;
@@ -99,7 +106,7 @@ const App: React.FC = () => {
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   
   const [activeClassId, setActiveClassId] = useState<string | null>(null);
-  const [view, setView] = useState<ViewType>('Daily');
+  const [view, setView] = useState<ViewType>('Admin');
   const [reportTab, setReportTab] = useState<'Weekly' | 'Monthly' | 'Semester'>('Weekly');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
@@ -564,7 +571,12 @@ const App: React.FC = () => {
       {isSidebarOpen && (<div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-20 md:hidden"></div>)}
       <nav className={`fixed inset-y-0 left-0 z-30 w-64 glass-panel flex-shrink-0 p-4 space-y-2 overflow-y-auto print-hide transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex justify-between items-center"><h2 className="text-xl font-bold px-2">{school.name}</h2><button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 rounded-full hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div>
-        <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</h3>{(['Daily', 'Reports', 'Assignments', 'Admin'] as ViewType[]).map(v => (<button key={v} onClick={() => { setView(v); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-3 nav-link ${view === v ? 'bg-slate-700 text-white active' : 'text-slate-400 hover:bg-slate-800'}`}>{v}</button>))}</div>
+        <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Menu</h3>
+            {MENU_ITEMS.map(({ view: v, label }) => (
+            <button key={v} onClick={() => { setView(v); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-3 nav-link ${view === v ? 'bg-slate-700 text-white active' : 'text-slate-400 hover:bg-slate-800'}`}>
+                {label}
+            </button>
+        ))}</div>
         <div className="pt-4"><h3 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Kelas</h3>{classes.map(c => (<button key={c.id} onClick={() => { setActiveClassId(c.id); setIsSidebarOpen(false); }} className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium truncate ${activeClassId === c.id ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>{c.name}</button>))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
       </nav>
       <main className="flex-1 flex flex-col overflow-hidden">
