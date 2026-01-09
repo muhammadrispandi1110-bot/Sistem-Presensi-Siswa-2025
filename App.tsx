@@ -285,7 +285,6 @@ const App: React.FC = () => {
     const updated = { ...attendance, [studentId]: { ...attendance[studentId], [date]: status } };
     setAttendance(updated);
     if (!supabase) return;
-    // Debounced or direct sync
     await supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
   };
   
@@ -879,7 +878,7 @@ const App: React.FC = () => {
     }, [reportTab, currentDate, weeklyDates, activeMonth]);
 
     return (
-      <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
+      <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition print:block print:overflow-visible">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
           <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Laporan Kehadiran</h2><p className="text-slate-500 dark:text-slate-400">Rekapitulasi Presensi {activeClass.name}</p></div>
           <div className="flex gap-2">
@@ -908,9 +907,9 @@ const App: React.FC = () => {
           {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
         </div>
         <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p className="text-md text-gray-700">LAPORAN PRESENSI KELAS: {activeClass.name} - {reportTitle}</p><p className="text-sm text-gray-600">{school.periodName} {school.year}</p></div>
-        <div className="overflow-auto flex-1 print:overflow-visible">
+        <div className="overflow-auto flex-1 print:overflow-visible print:block">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
-            <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
+            <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 print:static">
               <tr>
                 <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-10">No</th><th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
                 {dates.map(d => (<th key={d.toISOString()} className="px-2 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase"><div>{DAY_NAMES[d.getDay()].substring(0,3)}</div><div>{d.getDate()}</div></th>))}
@@ -919,7 +918,7 @@ const App: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {activeClass.students.map((s, idx) => (
-                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
+                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors print:break-inside-avoid"><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                   {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${status === 'H' ? 'text-emerald-700 dark:text-emerald-400' : status === 'S' ? 'text-blue-700 dark:text-blue-400' : status === 'I' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{status}</td>) })}
                   {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{totals[s.id][st]}</td>)}
                 </tr>))}
@@ -936,7 +935,7 @@ const App: React.FC = () => {
     const assignments = activeClass.assignments || [];
 
     return (
-      <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition">
+      <div className="flex-1 p-4 sm:p-6 flex flex-col overflow-hidden view-transition print:block print:overflow-visible">
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
           <div>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Rekapitulasi Nilai Tugas</h2>
@@ -961,9 +960,9 @@ const App: React.FC = () => {
         </div>
 
         {assignments.length > 0 ? (
-          <div className="overflow-auto flex-1 print:overflow-visible">
+          <div className="overflow-auto flex-1 print:overflow-visible print:block">
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
-              <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
+              <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 print:static">
                 <tr>
                   <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-10">No</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
@@ -976,7 +975,7 @@ const App: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeClass.students.map((s, idx) => (
-                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors print:break-inside-avoid">
                     <td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td>
                     <td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                     {assignments.map(a => {
@@ -1014,8 +1013,8 @@ const App: React.FC = () => {
   if (!isAuthenticated) return <><LoginScreen onLoginSuccess={() => { setIsAuthenticated(true); setIsLoading(true); }} showToast={showToast} authConfig={auth} schoolConfig={school}/><NotificationArea /></>;
 
   return (
-    <div className="h-screen w-screen bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex relative md:static">
-      {isSidebarOpen && (<div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-20 md:hidden"></div>)}
+    <div className="h-screen w-screen bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-200 flex relative md:static print:block print:h-auto print:bg-white">
+      {isSidebarOpen && (<div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/60 z-20 md:hidden print:hidden"></div>)}
       <nav className={`fixed inset-y-0 left-0 z-30 w-64 glass-panel flex-shrink-0 p-4 flex flex-col overflow-y-auto print-hide transform transition-transform md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex-shrink-0">
           <div className="flex justify-between items-center"><h2 className="text-xl font-bold px-2 text-slate-800 dark:text-slate-100">{school.name}</h2><button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-1 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M6 18L18 6M6 6l12 12" /></svg></button></div>
@@ -1046,7 +1045,7 @@ const App: React.FC = () => {
           <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
         </div>
       </nav>
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden print:block print:overflow-visible print:static">
         <header className="md:hidden flex items-center justify-between p-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800 print-hide sticky top-0 z-10"><button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 dark:text-slate-300"><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button><h2 className="text-lg font-semibold text-slate-800 dark:text-slate-200">{activeClass?.name || school.name}</h2><div className="w-8"></div></header>
         {view === 'Dashboard' && <DashboardView />}
         {view === 'Reports' && <ReportsView />}
