@@ -462,7 +462,7 @@ const App: React.FC = () => {
         return `${day}/${month}/${year}`;
     });
 
-    const headers = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A"];
+    const headers = ["No", "Nama Siswa", ...dateHeaders, "H", "S", "I", "A", "%"];
     
     const data = activeClass.students.map((student, index) => {
       const totals = { 'H': 0, 'S': 0, 'I': 0, 'A': 0 };
@@ -471,7 +471,9 @@ const App: React.FC = () => {
         totals[status]++;
         return status;
       });
-      return [index + 1, student.name, ...statusRow, totals.H, totals.S, totals.I, totals.A];
+      const totalDays = dates.length;
+      const percentage = totalDays > 0 ? ((totals.H / totalDays) * 100).toFixed(1) + '%' : '0%';
+      return [index + 1, student.name, ...statusRow, totals.H, totals.S, totals.I, totals.A, percentage];
     });
 
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
@@ -914,14 +916,23 @@ const App: React.FC = () => {
                 <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase w-10">No</th><th className="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase" style={{minWidth: '200px'}}>Nama Siswa</th>
                 {dates.map(d => (<th key={d.toISOString()} className="px-2 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase"><div>{DAY_NAMES[d.getDay()].substring(0,3)}</div><div>{d.getDate()}</div></th>))}
                 {(['H', 'S', 'I', 'A'] as const).map(s => <th key={s} className="px-2 py-3 text-center text-xs font-bold uppercase w-12 text-slate-600 dark:text-slate-300">{s}</th>)}
+                <th className="px-3 py-3 text-center text-xs font-bold uppercase w-16 text-indigo-600 dark:text-indigo-400">%</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {activeClass.students.map((s, idx) => (
-                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors print:break-inside-avoid"><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
-                  {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${status === 'H' ? 'text-emerald-700 dark:text-emerald-400' : status === 'S' ? 'text-blue-700 dark:text-blue-400' : status === 'I' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{status}</td>) })}
-                  {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{totals[s.id][st]}</td>)}
-                </tr>))}
+              {activeClass.students.map((s, idx) => {
+                const totalDays = dates.length;
+                const hadirCount = totals[s.id]['H'];
+                const percentage = totalDays > 0 ? ((hadirCount / totalDays) * 100).toFixed(1) : '0';
+                
+                return (
+                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors print:break-inside-avoid"><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
+                    {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${status === 'H' ? 'text-emerald-700 dark:text-emerald-400' : status === 'S' ? 'text-blue-700 dark:text-blue-400' : status === 'I' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{status}</td>) })}
+                    {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{totals[s.id][st]}</td>)}
+                    <td className="px-3 py-2 text-center text-sm font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/10">{percentage}%</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
