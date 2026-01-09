@@ -30,7 +30,6 @@ type ParsedStudent = Omit<Student, 'id'>;
 
 type Theme = 'light' | 'dark';
 
-// Komponen Modal generik
 const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   if (!isOpen) return null;
   const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
@@ -52,7 +51,6 @@ const Modal = ({ isOpen, onClose, title, children, footer, size = 'md' }) => {
   );
 };
 
-// Komponen Login yang diisolasi
 const LoginScreen = ({ onLoginSuccess, showToast, authConfig, schoolConfig }) => {
   const [loginForm, setLoginForm] = useState({ user: '', pass: '' });
 
@@ -509,14 +507,13 @@ const App: React.FC = () => {
 
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Nilai Tugas");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Nilas Tugas");
     
     const fileName = `Rekap_Tugas_${activeClass.name.replace(/ /g, '_')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
     showToast('Rekap tugas berhasil disimpan!');
   }, [activeClass, showToast]);
   
-  // UI Render Components
   const AdminView = () => {
     const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
     
@@ -643,7 +640,6 @@ const App: React.FC = () => {
                             </tr>))}
                         </tbody>
                     </table>
-                    {(!adminSelectedClassId || adminSelectedClass?.students.length === 0) && (<p className="text-center text-slate-400 dark:text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat siswa.' : 'Belum ada siswa di kelas ini.'}</p>)}
                 </div>
             </div>
         )}
@@ -690,7 +686,6 @@ const App: React.FC = () => {
                             </tr>))}
                         </tbody>
                     </table>
-                    {(!adminSelectedClassId || adminSelectedClass?.assignments?.length === 0) && (<p className="text-center text-slate-400 dark:text-slate-500 py-6">{!adminSelectedClassId ? 'Pilih kelas untuk melihat tugas.' : 'Belum ada tugas di kelas ini.'}</p>)}
                 </div>
             </div>
         )}
@@ -710,7 +705,7 @@ const App: React.FC = () => {
                 {supabase && classes.length === 0 && !isLoading && (
                     <div>
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-2">Isi Data Awal</h3>
-                    <div className="p-4 rounded-lg border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"><p className="text-slate-600 dark:text-slate-300 mb-4">Database Anda kosong. Klik untuk mengisi data awal (4 kelas & siswanya).</p>
+                    <div className="p-4 rounded-lg border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700"><p className="text-slate-600 dark:text-slate-300 mb-4">Database Anda kosong. Klik untuk mengisi data awal.</p>
                         <button onClick={seedInitialData} disabled={isSyncing} className="w-full justify-center flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50">
                         {isSyncing ? (<svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>) : (<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6-10a1 1 0 011-1h2a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" /><path d="M4 5a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2-2V5z" /></svg>)}
                         {isSyncing ? 'Memproses...' : 'Isi Database Dengan Data Awal'}
@@ -742,7 +737,7 @@ const App: React.FC = () => {
     const handleManualSave = async () => {
         setIsSyncing(true);
         try {
-            await fetchFromCloud(); // Refresh data as a way to "Sync"
+            await fetchFromCloud();
             showToast('Seluruh data berhasil disimpan ke cloud!', 'success');
         } catch (e) {
             showToast('Gagal melakukan sinkronisasi manual.', 'error');
@@ -769,7 +764,6 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex flex-col lg:flex-row lg:items-start gap-6">
-                {/* Kolom Presensi */}
                 <div className="lg:w-1/2 w-full flex flex-col gap-4">
                     <div className="flex items-center justify-between mobile-stack gap-4">
                         <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex-1">
@@ -800,7 +794,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Kolom Tugas */}
                 <div className="lg:w-1/2 w-full flex flex-col gap-4">
                     <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
                         <h3 className="text-md font-bold text-slate-900 dark:text-white">Manajemen Tugas</h3>
@@ -871,9 +864,9 @@ const App: React.FC = () => {
     }, [activeClass.students, dates, attendance]);
 
     const reportTitle = useMemo(() => {
-        if (reportTab === 'Daily') return `HARIAN: ${currentDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'}).toUpperCase()}`;
+        if (reportTab === 'Daily') return `HARIAN: ${currentDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}`;
         if (reportTab === 'Weekly') return `MINGGUAN (MULAI ${weeklyDates[0]?.toLocaleDateString('id-ID') || ''})`;
-        if (reportTab === 'Monthly') return `BULANAN: ${MONTHS_2026[activeMonth].name.toUpperCase()}`;
+        if (reportTab === 'Monthly') return `BULANAN: ${MONTHS_2026[activeMonth].name}`;
         return `SEMESTER`;
     }, [reportTab, currentDate, weeklyDates, activeMonth]);
 
@@ -892,6 +885,7 @@ const App: React.FC = () => {
             </button>
           </div>
         </div>
+        
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-4 print-hide">
           <div className="flex">
             {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (<button key={tab} onClick={() => setReportTab(tab)} className={`px-4 py-2 font-semibold text-sm ${reportTab === tab ? 'text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-500' : 'text-slate-500 dark:text-slate-400'}`}>{tab.replace('Daily', 'Harian').replace('Weekly', 'Mingguan').replace('Monthly', 'Bulanan')}</button>))}
@@ -906,7 +900,13 @@ const App: React.FC = () => {
           {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-500 dark:text-slate-400">Navigasi Minggu</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
           {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
         </div>
-        <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p className="text-md text-gray-700">LAPORAN PRESENSI KELAS: {activeClass.name} - {reportTitle}</p><p className="text-sm text-gray-600">{school.periodName} {school.year}</p></div>
+
+        <div className="hidden print-header">
+          <h2>{school.name}</h2>
+          <h3>LAPORAN PRESENSI KELAS: {activeClass.name}</h3>
+          <p>REKAPAN {reportTitle}</p>
+        </div>
+
         <div className="overflow-auto flex-1 print:overflow-visible print:block">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
             <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 print:static">
@@ -953,10 +953,10 @@ const App: React.FC = () => {
           </div>
         </div>
         
-        <div className="hidden print-header text-center my-4">
-          <h2 className="text-xl font-bold text-black">{school.name}</h2>
-          <p className="text-md text-gray-700">REKAPITULASI NILAI TUGAS KELAS: {activeClass.name}</p>
-          <p className="text-sm text-gray-600">{school.periodName} {school.year}</p>
+        <div className="hidden print-header">
+          <h2>{school.name}</h2>
+          <h3>REKAPITULASI NILAI TUGAS KELAS: {activeClass.name}</h3>
+          <p>PERIODE {school.periodName} {school.year}</p>
         </div>
 
         {assignments.length > 0 ? (
@@ -1038,7 +1038,6 @@ const App: React.FC = () => {
                 </div>
               )}
             </div>
-            
             ))}<p className="px-3 text-sm text-slate-500">{classes.length === 0 && "Belum ada kelas."}</p></div>
         </div>
         <div className="mt-auto pt-4">
@@ -1053,75 +1052,6 @@ const App: React.FC = () => {
         {view === 'Admin' && <AdminView />}
       </main>
       <NotificationArea />
-      <Modal 
-        isOpen={!!showModal}
-        onClose={() => setShowModal(null)}
-        title={`${editingItem ? 'Edit' : 'Tambah'} ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`}
-        footer={<><button onClick={() => setShowModal(null)} className="px-4 py-2 text-sm rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Batal</button><button onClick={handleSave} disabled={isSyncing} className="px-4 py-2 text-sm rounded-md bg-indigo-600 text-white font-semibold hover:bg-indigo-500 disabled:opacity-50">{isSyncing ? 'Menyimpan...' : 'Simpan'}</button></>}
-      >
-        {showModal === 'class' && <>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData(f => ({...f, className: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Jadwal Hari Belajar</label><div className="grid grid-cols-3 sm:grid-cols-4 gap-2">{DAY_NAMES.slice(1, 6).map((day, i) => (<button key={i+1} onClick={() => setAdminFormData(f => ({...f, schedule: f.schedule.includes(i+1) ? f.schedule.filter(d => d !== i+1) : [...f.schedule, i+1]}))} className={`p-2 rounded-md text-sm ${adminFormData.schedule.includes(i+1) ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`}>{day}</button>))}</div></div>
-        </>}
-        {showModal === 'student' && <>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Nama Siswa</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData(f => ({...f, studentName: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData(f => ({...f, studentNis: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData(f => ({...f, studentNisn: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-        </>}
-        {showModal === 'assignment' && <>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData(f => ({...f, assignmentTitle: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData(f => ({...f, assignmentDesc: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" rows={3}></textarea></div>
-          <div><label className="text-sm text-slate-600 dark:text-slate-300 block mb-1">Batas Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData(f => ({...f, assignmentDueDate: e.target.value}))} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-md p-2 text-sm text-slate-800 dark:text-slate-200" /></div>
-        </>}
-      </Modal>
-
-      <Modal
-        isOpen={showBulkUploadModal}
-        size="lg"
-        onClose={() => {setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = '';}}
-        title={`Unggah Siswa Massal ke Kelas: ${classes.find(c => c.id === adminSelectedClassId)?.name || ''}`}
-        footer={<>
-            <button onClick={() => { setShowBulkUploadModal(false); setParsedStudents([]); setUploadFileName(''); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="px-4 py-2 text-sm rounded-md text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Batal</button>
-            <button onClick={handleBulkSave} disabled={isSyncing || parsedStudents.length === 0} className="px-4 py-2 text-sm rounded-md bg-sky-600 text-white font-semibold hover:bg-sky-500 disabled:opacity-50">
-                {isSyncing ? 'Menyimpan...' : `Simpan ${parsedStudents.length} Siswa`}
-            </button>
-        </>}
-      >
-        <div className="space-y-4">
-            <div className="p-3 rounded-md bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
-                <p className="font-semibold mb-2 text-slate-800 dark:text-slate-200">Petunjuk:</p>
-                <ul className="list-disc list-inside space-y-1">
-                    <li>Gunakan file Excel (.xlsx, .xls) atau .csv.</li>
-                    <li>Pastikan file memiliki kolom dengan judul: <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nama</code>, <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nis</code>, dan <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">nisn</code>.</li>
-                    <li>
-                        <button onClick={downloadTemplate} className="text-indigo-600 dark:text-indigo-400 hover:underline font-semibold">Unduh file template</button> untuk format yang benar.
-                    </li>
-                </ul>
-            </div>
-            <div>
-                <label htmlFor="file-upload" className="w-full cursor-pointer bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-white font-semibold py-2 px-4 rounded-md inline-flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                    {uploadFileName ? `File: ${uploadFileName}` : 'Pilih File Excel...'}
-                </label>
-                <input ref={fileInputRef} id="file-upload" type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleFileParse} />
-            </div>
-            {parsedStudents.length > 0 && (
-                <div>
-                    <h4 className="font-semibold text-slate-800 dark:text-slate-200 mb-2">Pratinjau Data:</h4>
-                    <div className="max-h-60 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-md">
-                        <table className="min-w-full text-sm">
-                            <thead className="bg-slate-100 dark:bg-slate-900 sticky top-0"><tr className="text-left text-slate-600 dark:text-slate-300"><th className="p-2">Nama</th><th className="p-2">NIS</th><th className="p-2">NISN</th></tr></thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-                                {parsedStudents.map((student, index) => (
-                                    <tr key={index}><td className="p-2">{student.name}</td><td className="p-2">{student.nis}</td><td className="p-2">{student.nisn}</td></tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-        </div>
-      </Modal>
     </div>
   );
 };

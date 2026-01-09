@@ -3,7 +3,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Presensi Digital - SMAN 11 Makassar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -63,11 +63,6 @@
         @media (max-width: 768px) {
             .mobile-hide { display: none !important; }
             .mobile-stack { flex-direction: column !important; }
-            .attendance-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-                gap: 12px;
-            }
         }
 
         .nav-link {
@@ -92,11 +87,11 @@
             border-color: #4f46e5;
         }
 
-        /* Print Styles - Refined for Multi-page support */
+        /* Print Styles */
         @media print {
             @page {
                 size: landscape;
-                margin: 1cm;
+                margin: 1.5cm;
             }
             
             body, html {
@@ -105,19 +100,12 @@
                 background-color: white !important;
                 color: black !important;
                 width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
             }
             
-            #root {
+            #root, .h-screen {
                 height: auto !important;
                 overflow: visible !important;
                 display: block !important;
-            }
-
-            .h-screen {
-                height: auto !important;
-                min-height: initial !important;
             }
 
             nav, .print-hide, button {
@@ -127,84 +115,51 @@
             main {
                 display: block !important;
                 height: auto !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
                 overflow: visible !important;
-            }
-
-            .flex, .flex-col, .flex-1 {
-                display: block !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-
-            .overflow-hidden, .overflow-auto, .overflow-y-auto {
-                overflow: visible !important;
-                height: auto !important;
-                max-height: none !important;
             }
 
             .print-header {
                 display: block !important;
                 text-align: center;
-                margin-bottom: 20px;
+                margin-bottom: 30px;
+                border-bottom: 2px solid #000;
+                padding-bottom: 10px;
             }
+            
+            .print-header h2 { font-size: 18pt !important; margin: 0; padding: 0; }
+            .print-header h3 { font-size: 14pt !important; margin: 5px 0; padding: 0; }
+            .print-header p { font-size: 12pt !important; margin: 0; padding: 0; text-transform: uppercase; }
 
             table {
                 width: 100% !important;
                 border-collapse: collapse !important;
                 table-layout: auto !important;
-                page-break-after: auto;
             }
 
-            tr {
-                page-break-inside: avoid !important;
-                page-break-after: auto;
-            }
+            tr { page-break-inside: avoid !important; }
 
             th, td {
                 border: 1px solid #000 !important;
                 padding: 4px 6px !important;
-                font-size: 8pt !important;
+                font-size: 9pt !important;
                 color: #000 !important;
-                background-color: transparent !important;
-                word-wrap: break-word;
+                background: transparent !important;
             }
 
-            thead {
-                display: table-header-group !important;
-            }
+            thead { display: table-header-group !important; }
 
-            tfoot {
-                display: table-footer-group !important;
+            .text-emerald-700, .dark\:text-emerald-400 { color: #000 !important; }
+            .text-blue-700, .dark\:text-blue-400 { color: #000 !important; }
+            .text-amber-700, .dark\:text-amber-400 { color: #000 !important; }
+            .text-rose-700, .dark\:text-rose-400 { color: #000 !important; }
+            
+            .overflow-auto, .overflow-hidden, .flex-1 {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
             }
-
-            /* Fix sticky positioning for print */
-            .sticky {
-                position: static !important;
-            }
-
-            /* Adjust status colors for print */
-            .text-emerald-700, .text-emerald-600, .dark\:text-emerald-400 { color: #059669 !important; font-weight: bold; }
-            .text-blue-700, .text-blue-600, .dark\:text-blue-400 { color: #2563eb !important; font-weight: bold; }
-            .text-amber-700, .text-amber-600, .dark\:text-amber-400 { color: #d97706 !important; font-weight: bold; }
-            .text-rose-700, .text-rose-600, .dark\:text-rose-400 { color: #dc2626 !important; font-weight: bold; }
         }
     </style>
-    <script>
-    // Theme loader script to prevent FOUC
-    (function() {
-      try {
-        var theme = localStorage.getItem('theme');
-        if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (_) {}
-    })();
-    </script>
 <script type="importmap">
 {
   "imports": {
