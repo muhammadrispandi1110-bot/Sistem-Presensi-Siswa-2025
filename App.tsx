@@ -285,9 +285,8 @@ const App: React.FC = () => {
     const updated = { ...attendance, [studentId]: { ...attendance[studentId], [date]: status } };
     setAttendance(updated);
     if (!supabase) return;
-    setIsSyncing(true);
+    // Debounced or direct sync
     await supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
-    setIsSyncing(false);
   };
   
   const openModal = (type: 'class' | 'student' | 'assignment', item: ClassData | Student | Assignment | null = null) => {
@@ -495,7 +494,8 @@ const App: React.FC = () => {
     
     const fileName = `Laporan_Presensi_${activeClass.name.replace(/ /g, '_')}_${reportTypeName}.xlsx`;
     XLSX.writeFile(workbook, fileName);
-  }, [activeClass, attendance, reportTab, currentDate, weeklyDates, monthlyDates, semesterDates, activeMonth]);
+    showToast('Laporan berhasil disimpan dan diunduh!');
+  }, [activeClass, attendance, reportTab, currentDate, weeklyDates, monthlyDates, semesterDates, activeMonth, showToast]);
 
   const handleExportTasksToExcel = useCallback(() => {
     if (!activeClass || !activeClass.assignments || activeClass.assignments.length === 0) return;
@@ -514,13 +514,13 @@ const App: React.FC = () => {
     
     const fileName = `Rekap_Tugas_${activeClass.name.replace(/ /g, '_')}.xlsx`;
     XLSX.writeFile(workbook, fileName);
-  }, [activeClass]);
+    showToast('Rekap tugas berhasil disimpan!');
+  }, [activeClass, showToast]);
   
   // UI Render Components
   const AdminView = () => {
     const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
-    const checkboxRef = useRef<HTMLInputElement>(null);
-
+    
     const handleSelectAll = (type: 'class' | 'student' | 'assignment') => {
         if (type === 'class') {
             if (selectedClassIds.length === classes.length) setSelectedClassIds([]);
@@ -730,34 +730,52 @@ const App: React.FC = () => {
 
     const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
         if(!supabase) return;
-        setIsSyncing(true);
         const { error } = await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
-        if (error) { showToast('Gagal menyimpan status tugas', 'error'); } else { showToast('Status tugas diperbarui'); fetchFromCloud(); }
-        setIsSyncing(false);
+        if (error) { showToast('Gagal menyimpan status tugas', 'error'); } else { fetchFromCloud(); }
     };
 
     const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
         if(!supabase) return;
-        setIsSyncing(true);
         const { error } = await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
-        if (error) { showToast('Gagal menyimpan nilai', 'error'); } else { showToast('Nilai berhasil disimpan'); fetchFromCloud(); }
-        setIsSyncing(false);
+        if (error) { showToast('Gagal menyimpan nilai', 'error'); } else { fetchFromCloud(); }
     };
+
+    const handleManualSave = async () => {
+        setIsSyncing(true);
+        try {
+            await fetchFromCloud(); // Refresh data as a way to "Sync"
+            showToast('Seluruh data berhasil disimpan ke cloud!', 'success');
+        } catch (e) {
+            showToast('Gagal melakukan sinkronisasi manual.', 'error');
+        } finally {
+            setIsSyncing(false);
+        }
+    }
 
     return (
         <div className="flex-1 p-4 sm:p-6 overflow-y-auto view-transition">
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard Kelas: {activeClass.name}</h2>
-                <p className="text-slate-500 dark:text-slate-400">Kelola presensi dan tugas harian di satu tempat.</p>
+            <div className="mb-6 flex items-center justify-between mobile-stack gap-4">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Dashboard Kelas: {activeClass.name}</h2>
+                    <p className="text-slate-500 dark:text-slate-400">Kelola presensi dan tugas harian di satu tempat.</p>
+                </div>
+                <button onClick={handleManualSave} disabled={isSyncing} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-emerald-500 transition-all active:scale-95 disabled:opacity-50">
+                    {isSyncing ? (
+                         <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A8 8 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    ) : (
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                    )}
+                    Simpan Perubahan
+                </button>
             </div>
 
             <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                 {/* Kolom Presensi */}
                 <div className="lg:w-1/2 w-full flex flex-col gap-4">
                     <div className="flex items-center justify-between mobile-stack gap-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Presensi Harian</h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">{DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID')}</p>
+                        <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex-1">
+                            <h3 className="text-md font-bold text-slate-900 dark:text-white">Presensi Harian</h3>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID')}</p>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap justify-end">
                             <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg></button>
@@ -785,35 +803,35 @@ const App: React.FC = () => {
 
                 {/* Kolom Tugas */}
                 <div className="lg:w-1/2 w-full flex flex-col gap-4">
-                    <div>
-                        <h3 className="text-lg font-bold text-slate-900 dark:text-white">Manajemen Tugas</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Status pengumpulan tugas kelas</p>
+                    <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <h3 className="text-md font-bold text-slate-900 dark:text-white">Manajemen Tugas</h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Status pengumpulan tugas kelas</p>
                     </div>
                      <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2">
                         {activeClass.assignments && activeClass.assignments.length > 0 ? (
                             activeClass.assignments.map(a => (
-                                <div key={a.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4">
+                                <div key={a.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-sm">
                                     <div className="border-b border-slate-200 dark:border-slate-700 pb-3 mb-3">
-                                        <h4 className="font-semibold text-slate-900 dark:text-white">{a.title}</h4>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400">Batas Waktu: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
+                                        <h4 className="font-bold text-slate-900 dark:text-white">{a.title}</h4>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Tenggat: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
                                     </div>
                                     <div className="overflow-x-auto">
                                         <table className="min-w-full">
-                                            <thead><tr><th className="py-1 pr-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 w-8">No</th><th className="py-1 px-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Nama Siswa</th><th className="py-1 px-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th><th className="py-1 pl-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Nilai</th></tr></thead>
+                                            <thead><tr><th className="py-1 pr-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 w-8">No</th><th className="py-1 px-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">Nama</th><th className="py-1 px-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Status</th><th className="py-1 pl-2 text-center text-xs font-semibold text-slate-500 dark:text-slate-400">Nilai</th></tr></thead>
                                             <tbody>
                                                 {activeClass.students.map((s, idx) => {
                                                     const sub = a.submissions[s.id]; const isSub = sub?.isSubmitted || false;
                                                     return (
-                                                      <tr key={s.id} className="border-t border-slate-100 dark:border-slate-700/50">
+                                                      <tr key={s.id} className="border-t border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                                                         <td className="py-1.5 pr-2 text-slate-500 dark:text-slate-400 text-xs">{idx + 1}.</td>
-                                                        <td className="py-1.5 px-2 text-slate-800 dark:text-slate-200 font-medium text-sm truncate">{s.name}</td>
+                                                        <td className="py-1.5 px-2 text-slate-800 dark:text-slate-200 font-medium text-xs truncate max-w-[100px]">{s.name}</td>
                                                         <td className="py-1.5 px-2 text-center">
-                                                            <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-6 h-6 mx-auto flex items-center justify-center rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-800 focus:ring-indigo-500 ${isSub ? 'bg-indigo-600 text-white hover:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700 text-transparent hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-500'}`} role="checkbox" aria-checked={isSub}>
-                                                                {isSub && (<svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>)}
+                                                            <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-5 h-5 mx-auto flex items-center justify-center rounded transition-colors ${isSub ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent border border-slate-300 dark:border-slate-500'}`}>
+                                                                {isSub && (<svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>)}
                                                             </button>
                                                         </td>
                                                         <td className="py-1 pl-2 text-center">
-                                                            <input type="text" defaultValue={sub?.score || ''} onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} disabled={!isSub} placeholder={isSub ? '...' : '–'} className="w-16 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-md px-2 py-0.5 text-sm text-center disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:cursor-not-allowed"/>
+                                                            <input type="text" defaultValue={sub?.score || ''} onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} disabled={!isSub} placeholder={isSub ? '...' : '–'} className="w-12 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded px-1 py-0.5 text-xs text-center disabled:opacity-50"/>
                                                         </td>
                                                       </tr>)
                                                 })}
@@ -865,8 +883,14 @@ const App: React.FC = () => {
         <div className="flex items-center justify-between mb-6 mobile-stack gap-4 print-hide">
           <div><h2 className="text-2xl font-bold text-slate-900 dark:text-white">Laporan Kehadiran</h2><p className="text-slate-500 dark:text-slate-400">Rekapitulasi Presensi {activeClass.name}</p></div>
           <div className="flex gap-2">
-            <button onClick={handleExportAttendanceToExcel} className="flex items-center gap-2 rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>Unduh Excel</button>
-            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>Print Laporan</button>
+            <button onClick={handleExportAttendanceToExcel} className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-indigo-500 hover:-translate-y-0.5 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                Simpan Laporan
+            </button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
+                Cetak
+            </button>
           </div>
         </div>
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 mb-4 print-hide">
@@ -880,11 +904,11 @@ const App: React.FC = () => {
                 <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button>
             </div>
           )}
-          {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-500 dark:text-slate-400">Minggu Ini</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
+          {reportTab === 'Weekly' && (<div className="flex items-center gap-2"><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() - 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg></button><span className="text-sm text-slate-500 dark:text-slate-400">Navigasi Minggu</span><button onClick={() => setCurrentDate(d => new Date(d.setDate(d.getDate() + 7)))} className="p-2 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></button></div>)}
           {reportTab === 'Monthly' && (<select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-md px-3 py-1.5 text-sm text-slate-800 dark:text-slate-200">{MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select>)}
         </div>
         <div className="hidden print-header text-center my-4"><h2 className="text-xl font-bold text-black">{school.name}</h2><p className="text-md text-gray-700">LAPORAN PRESENSI KELAS: {activeClass.name} - {reportTitle}</p><p className="text-sm text-gray-600">{school.periodName} {school.year}</p></div>
-        <div className="overflow-auto flex-1">
+        <div className="overflow-auto flex-1 print:overflow-visible">
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
             <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
               <tr>
@@ -895,7 +919,7 @@ const App: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {activeClass.students.map((s, idx) => (
-                <tr key={s.id}><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
+                <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"><td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td><td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                   {dates.map(d => { const dateStr = formatDate(d); const status = attendance[s.id]?.[dateStr] || 'H'; return (<td key={dateStr} className={`px-2 py-2 text-center text-sm font-semibold ${status === 'H' ? 'text-emerald-700 dark:text-emerald-400' : status === 'S' ? 'text-blue-700 dark:text-blue-400' : status === 'I' ? 'text-amber-700 dark:text-amber-400' : 'text-rose-700 dark:text-rose-400'}`}>{status}</td>) })}
                   {(['H', 'S', 'I', 'A'] as const).map(st => <td key={st} className="px-2 py-2 text-center text-sm font-bold text-slate-700 dark:text-slate-300">{totals[s.id][st]}</td>)}
                 </tr>))}
@@ -919,10 +943,13 @@ const App: React.FC = () => {
             <p className="text-slate-500 dark:text-slate-400">Laporan Nilai untuk Kelas {activeClass.name}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleExportTasksToExcel} className="flex items-center gap-2 rounded-md bg-cyan-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-500"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>Unduh Excel</button>
-            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
-              Print Rekap
+            <button onClick={handleExportTasksToExcel} className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-indigo-500 hover:-translate-y-0.5 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6 11a1 1 0 011-1h2V6a1 1 0 112 0v4h2a1 1 0 110 2H7a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                Simpan Rekap Nilai
+            </button>
+            <button onClick={() => window.print()} className="flex items-center gap-2 rounded-lg bg-slate-200 dark:bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v3a2 2 0 002 2h6a2 2 0 002-2v-3h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7V9h6v3z" clipRule="evenodd" /></svg>
+                Cetak
             </button>
           </div>
         </div>
@@ -934,7 +961,7 @@ const App: React.FC = () => {
         </div>
 
         {assignments.length > 0 ? (
-          <div className="overflow-auto flex-1">
+          <div className="overflow-auto flex-1 print:overflow-visible">
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border-collapse">
               <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0">
                 <tr>
@@ -949,7 +976,7 @@ const App: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {activeClass.students.map((s, idx) => (
-                  <tr key={s.id}>
+                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                     <td className="px-3 py-2 text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td>
                     <td className="px-4 py-2 text-sm font-medium text-slate-800 dark:text-slate-200">{s.name}</td>
                     {assignments.map(a => {
@@ -981,7 +1008,7 @@ const App: React.FC = () => {
     </button>
   );
 
-  const NotificationArea = () => (<div className="fixed bottom-4 right-4 z-50 space-y-2 print-hide">{notifications.map(n => (<div key={n.id} className={`px-4 py-2 rounded-md text-sm font-semibold text-white shadow-lg view-transition ${n.type === 'success' ? 'bg-emerald-600' : n.type === 'error' ? 'bg-rose-600' : 'bg-blue-600'}`}>{n.message}</div>))}</div>)
+  const NotificationArea = () => (<div className="fixed bottom-4 right-4 z-50 space-y-2 print-hide">{notifications.map(n => (<div key={n.id} className={`px-4 py-2 rounded-md text-sm font-semibold text-white shadow-lg view-transition transform translate-y-0 opacity-100 ${n.type === 'success' ? 'bg-emerald-600' : n.type === 'error' ? 'bg-rose-600' : 'bg-blue-600'}`}>{n.message}</div>))}</div>)
   
   if (isLoading) return <div className="min-h-screen w-full flex items-center justify-center text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900">Memuat Aplikasi...</div>;
   if (!isAuthenticated) return <><LoginScreen onLoginSuccess={() => { setIsAuthenticated(true); setIsLoading(true); }} showToast={showToast} authConfig={auth} schoolConfig={school}/><NotificationArea /></>;

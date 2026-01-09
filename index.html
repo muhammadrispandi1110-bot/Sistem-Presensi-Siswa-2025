@@ -94,22 +94,68 @@
 
         /* Print Styles */
         @media print {
-            body, .dark body {
+            @page {
+                size: landscape;
+                margin: 1cm;
+            }
+            body, html {
+                height: auto !important;
+                overflow: visible !important;
                 background-color: white !important;
                 color: black !important;
             }
-            .print-container { display: block !important; }
-            .print-header { display: block !important; }
+            #root, .h-screen {
+                height: auto !important;
+                overflow: visible !important;
+                display: block !important;
+                position: relative !important;
+            }
+            main {
+                overflow: visible !important;
+                height: auto !important;
+                display: block !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            .view-transition {
+                animation: none !important;
+                transform: none !important;
+                opacity: 1 !important;
+            }
             .print-hide { display: none !important; }
-            main { padding: 0 !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ccc; padding: 6px; font-size: 10px; color: black !important; }
-            th { background-color: #f2f2f2 !important; font-weight: bold; }
-            .bg-slate-700, .dark .bg-slate-800, .dark .bg-slate-900 { background-color: #f2f2f2 !important; }
-            .text-emerald-400 { color: #10B981 !important; }
-            .text-blue-400 { color: #3B82F6 !important; }
-            .text-amber-400 { color: #F59E0B !important; }
-            .text-rose-400 { color: #F43F5E !important; }
+            .print-header { display: block !important; }
+            
+            table { 
+                width: 100% !important; 
+                border-collapse: collapse !important; 
+                table-layout: auto !important;
+            }
+            th, td { 
+                border: 1px solid #000 !important; 
+                padding: 4px 6px !important; 
+                font-size: 8pt !important; 
+                color: black !important;
+                background-color: transparent !important;
+            }
+            tr {
+                page-break-inside: avoid !important;
+            }
+            th { 
+                background-color: #f2f2f2 !important; 
+                font-weight: bold !important; 
+                -webkit-print-color-adjust: exact;
+            }
+            .text-emerald-700, .text-emerald-400 { color: #065f46 !important; }
+            .text-blue-700, .text-blue-400 { color: #1e40af !important; }
+            .text-amber-700, .text-amber-400 { color: #92400e !important; }
+            .text-rose-700, .text-rose-400 { color: #9f1239 !important; }
+            
+            /* Ensure the reports div is not restricted */
+            .overflow-auto, .overflow-hidden, .flex-1 {
+                overflow: visible !important;
+                flex: none !important;
+                height: auto !important;
+            }
         }
     </style>
     <script>
