@@ -6,6 +6,12 @@ export const MONTHS_2026 = [
   { name: 'April', value: 3, days: 30 },
   { name: 'Mei', value: 4, days: 31 },
   { name: 'Juni', value: 5, days: 30 },
+  { name: 'Juli', value: 6, days: 31 },
+  { name: 'Agustus', value: 7, days: 31 },
+  { name: 'September', value: 8, days: 30 },
+  { name: 'Oktober', value: 9, days: 31 },
+  { name: 'November', value: 10, days: 30 },
+  { name: 'Desember', value: 11, days: 31 },
 ];
 
 export const formatDate = (date: Date): string => {
@@ -27,7 +33,6 @@ export const getDatesInRange = (startDate: Date, endDate: Date, schedule?: numbe
   const lastDate = new Date(endDate);
   lastDate.setHours(0,0,0,0);
 
-  // Jika jadwal tidak ada, gunakan default Senin-Jumat (1,2,3,4,5)
   const activeDays = schedule && schedule.length > 0 ? schedule : [1, 2, 3, 4, 5];
 
   while (currentDate <= lastDate) {
@@ -56,9 +61,11 @@ export const getWeekDates = (baseDate: Date, schedule?: number[]): Date[] => {
   return getDatesInRange(monday, friday, schedule);
 };
 
-export const getSemesterDates = (schedule?: number[]): Date[] => {
-  const start = new Date(2026, 0, 1);
-  const end = new Date(2026, 5, 30);
+export const getSemesterDates = (semester: number = 1, schedule?: number[]): Date[] => {
+  const startMonth = semester === 1 ? 0 : 6;
+  const endMonth = semester === 1 ? 5 : 11;
+  const start = new Date(2026, startMonth, 1);
+  const end = new Date(2026, endMonth + 1, 0);
   return getDatesInRange(start, end, schedule);
 };
 
@@ -66,7 +73,6 @@ export const getNextTeachingDate = (date: Date, schedule: number[], direction: '
   const activeDays = schedule && schedule.length > 0 ? schedule : [1, 2, 3, 4, 5];
   let checkDate = new Date(date);
   
-  // Maksimal cari dalam 7 hari untuk menghindari infinite loop
   for (let i = 0; i < 7; i++) {
     checkDate.setDate(checkDate.getDate() + (direction === 'next' ? 1 : -1));
     if (activeDays.includes(checkDate.getDay())) {
