@@ -76,7 +76,7 @@ const App: React.FC = () => {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
   const [activeClassId, setActiveClassId] = useState<string | null>(null);
-  const [view, setView] = useState<ViewType>('Admin');
+  const [view, setView] = useState<ViewType>('Dashboard');
   const [reportTab, setReportTab] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Semester'>('Daily');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
@@ -86,7 +86,6 @@ const App: React.FC = () => {
   const [editingItem, setEditingItem] = useState<ClassData | Student | Assignment | null>(null);
   const [adminSelectedClassId, setAdminSelectedClassId] = useState<string | null>(null);
   
-  // Selection states for bulk actions
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
@@ -162,7 +161,7 @@ const App: React.FC = () => {
   const handleManualSave = async () => {
     setIsSyncing(true);
     await fetchFromCloud();
-    showToast('Berhasil disinkronkan ke cloud!');
+    showToast('Seluruh data berhasil disimpan dan disinkronkan ke cloud!');
     setIsSyncing(false);
   };
 
@@ -465,11 +464,9 @@ const App: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={handleManualSave} disabled={isSyncing} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-6 py-3 rounded-2xl text-sm font-black shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-                        {isSyncing ? 'Sinkronisasi...' : 'Refresh Data'}
-                    </button>
-                    <button onClick={() => window.print()} className="active-gradient text-white px-8 py-3 rounded-2xl text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-2">
-                        Cetak Presensi
+                    <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-8 py-4 rounded-2xl text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-2 min-w-[160px] justify-center">
+                        <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                        {isSyncing ? 'Menyimpan...' : 'Simpan Data'}
                     </button>
                 </div>
             </div>
@@ -742,6 +739,87 @@ const App: React.FC = () => {
     );
   };
 
+  const TaskReportsView = () => {
+    if (!activeClass) return <div className="p-12 text-center text-slate-400 font-bold">Memuat Rekap Tugas...</div>;
+    const assignments = activeClass.assignments || [];
+    
+    return (
+      <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print:block">
+        <div className="flex items-center justify-between mb-8 print-hide">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black tracking-tight">Rekap Tugas Kelas</h2>
+            <p className="text-slate-500 font-medium">Monitoring nilai kumulatif seluruh tugas {activeClass.name}</p>
+          </div>
+          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl text-sm font-black shadow-xl hover:scale-105 transition-transform active:scale-95">Cetak Rekap Nilai</button>
+        </div>
+
+        <div className="hidden print-header text-center mb-10 border-b-4 border-slate-900 pb-6">
+          <h2 className="text-2xl font-black">{school.name}</h2>
+          <h3 className="text-xl font-bold">REKAPITULASI NILAI TUGAS - {activeClass.name}</h3>
+          <p className="font-black text-sm">TAHUN PELAJARAN {school.year}</p>
+        </div>
+
+        <div className="overflow-auto flex-1 custom-scrollbar border rounded-3xl print:overflow-visible print:border-none">
+          <table className="min-w-full divide-y divide-slate-100 dark:divide-slate-800 border-collapse">
+            <thead className="bg-slate-50 dark:bg-slate-800 sticky top-0 z-10 print:static">
+              <tr>
+                <th className="px-4 py-6 text-left text-[10px] font-black text-slate-400 uppercase border">No</th>
+                <th className="px-6 py-6 text-left text-[10px] font-black text-slate-400 uppercase border min-w-[200px]">Nama Peserta Didik</th>
+                {assignments.map((a, i) => (
+                  <th key={a.id} className="px-4 py-6 text-center text-[10px] font-black text-slate-400 uppercase border max-w-[120px]">
+                    <div className="truncate" title={a.title}>Tugas {i+1}</div>
+                  </th>
+                ))}
+                <th className="px-6 py-6 text-center text-[10px] font-black text-indigo-600 uppercase border bg-indigo-50 dark:bg-indigo-900/20">Rata-Rata</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white dark:bg-slate-900 divide-y divide-slate-100 dark:divide-slate-800">
+              {activeClass.students.map((s, idx) => {
+                let totalScore = 0;
+                let taskCount = 0;
+                return (
+                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="px-4 py-4 text-xs font-bold text-slate-400 border text-center">{idx + 1}</td>
+                    <td className="px-6 py-4 text-xs font-bold text-slate-800 dark:text-slate-200 border">{s.name}</td>
+                    {assignments.map(a => {
+                      const submission = a.submissions[s.id];
+                      const scoreStr = (submission?.isSubmitted && submission.score) ? submission.score : '-';
+                      const scoreNum = parseFloat(scoreStr);
+                      if (!isNaN(scoreNum)) {
+                        totalScore += scoreNum;
+                        taskCount++;
+                      }
+                      return (
+                        <td key={a.id} className="px-4 py-4 text-center text-xs font-bold border text-slate-600 dark:text-slate-400">
+                          {scoreStr}
+                        </td>
+                      );
+                    })}
+                    <td className="px-6 py-4 text-center text-sm font-black text-indigo-600 border bg-indigo-50/30 dark:bg-indigo-900/10">
+                      {taskCount > 0 ? (totalScore / taskCount).toFixed(1) : '-'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        <div className="mt-8 px-6 print-hide">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Keterangan Judul Tugas:</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {assignments.map((a, i) => (
+                    <div key={a.id} className="flex gap-3 items-center">
+                        <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center text-[10px] font-black">{i+1}</span>
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 truncate">{a.title}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-900"><div className="text-center space-y-6"><div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto"></div><p className="text-indigo-400 font-black tracking-widest text-sm animate-pulse">SMAN 11 MAKASSAR • DIGITAL PRESENCE</p></div></div>;
   if (!isAuthenticated) return (
     <div className="min-h-screen w-full flex items-center justify-center login-bg p-4">
@@ -791,7 +869,7 @@ const App: React.FC = () => {
         {view === 'Dashboard' && <DashboardView />}
         {view === 'Reports' && <ReportsView />}
         {view === 'Admin' && <AdminView />}
-        {view === 'TaskReports' && <div className="p-20 text-center space-y-4"><div className="text-6xl">🛠️</div><h3 className="text-2xl font-black">Fitur Dalam Pengembangan</h3><p className="text-slate-400 font-medium">Rekap tugas keseluruhan semester akan tersedia segera di panel Laporan.</p></div>}
+        {view === 'TaskReports' && <TaskReportsView />}
       </main>
       <div className="fixed bottom-6 right-6 z-50 space-y-3 print-hide">
         {notifications.map(n => <div key={n.id} className="bg-slate-900/90 dark:bg-white/90 backdrop-blur-md text-white dark:text-slate-900 px-8 py-4 rounded-3xl shadow-2xl text-xs font-black animate-fade-in-up flex items-center gap-4 border border-white/10 dark:border-black/10"><div className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></div>{n.message}</div>)}
