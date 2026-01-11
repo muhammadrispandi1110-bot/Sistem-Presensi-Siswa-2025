@@ -28,7 +28,7 @@ const MENU_ITEMS: { view: ViewType; label: string; icon: string }[] = [
 
 type Theme = 'light' | 'dark';
 
-const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }: { isOpen: any; onClose: any; title: any; children: any; footer?: any; size?: string; }) => {
+const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }: { isOpen: any; onClose: any; title: any; children?: any; footer?: any; size?: string; }) => {
   if (!isOpen) return null;
   const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
   return (
@@ -85,6 +85,8 @@ const App: React.FC = () => {
   const [showModal, setShowModal] = useState<'class' | 'student' | 'assignment' | null>(null);
   const [editingItem, setEditingItem] = useState<ClassData | Student | Assignment | null>(null);
   const [adminSelectedClassId, setAdminSelectedClassId] = useState<string | null>(null);
+  
+  // Selection states for bulk actions
   const [selectedClassIds, setSelectedClassIds] = useState<string[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedAssignmentIds, setSelectedAssignmentIds] = useState<string[]>([]);
@@ -122,7 +124,7 @@ const App: React.FC = () => {
             });
             return { ...a, submissions: assignmentSubmissions };
         });
-        return { ...c, students: classStudents, assignments: classAssignments };
+        return { ...c, id: c.id, students: classStudents, assignments: classAssignments };
       });
 
       const reconstructedAttendance: AttendanceRecord = {};
@@ -149,19 +151,6 @@ const App: React.FC = () => {
 
   const activeClass = useMemo(() => classes.find(c => c.id === activeClassId), [classes, activeClassId]);
   const dateStr = useMemo(() => formatDate(currentDate), [currentDate]);
-
-  const stats = useMemo(() => {
-    if (!activeClass) return { total: 0, H: 0, S: 0, I: 0, A: 0 };
-    const total = activeClass.students.length;
-    const records = activeClass.students.map(s => attendance[s.id]?.[dateStr] || 'H');
-    return {
-      total,
-      H: records.filter(r => r === 'H').length,
-      S: records.filter(r => r === 'S').length,
-      I: records.filter(r => r === 'I').length,
-      A: records.filter(r => r === 'A').length,
-    };
-  }, [activeClass, attendance, dateStr]);
 
   const handleAttendanceChange = async (studentId: string, date: string, status: AttendanceStatus) => {
     const updated = { ...attendance, [studentId]: { ...attendance[studentId], [date]: status } };
@@ -215,35 +204,236 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDeleteItem = async (type: 'class' | 'student' | 'assignment', id: string) => {
+    if (!supabase || !window.confirm(`Yakin ingin menghapus ${type} ini?`)) return;
+    setIsSyncing(true);
+    try {
+      const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
+      const { error } = await supabase.from(table).delete().eq('id', id);
+      if (error) throw error;
+      showToast(`${type} berhasil dihapus.`);
+      await fetchFromCloud();
+    } catch (err: any) {
+      showToast(`Gagal menghapus: ${err.message}`, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleBulkDelete = async (type: 'class' | 'student' | 'assignment') => {
+    const ids = type === 'class' ? selectedClassIds : type === 'student' ? selectedStudentIds : selectedAssignmentIds;
+    if (!supabase || ids.length === 0 || !window.confirm(`Yakin ingin menghapus ${ids.length} item terpilih?`)) return;
+    
+    setIsSyncing(true);
+    try {
+      const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
+      const { error } = await supabase.from(table).delete().in('id', ids);
+      if (error) throw error;
+      
+      showToast(`${ids.length} item berhasil dihapus secara massal.`);
+      if (type === 'class') setSelectedClassIds([]);
+      if (type === 'student') setSelectedStudentIds([]);
+      if (type === 'assignment') setSelectedAssignmentIds([]);
+      
+      await fetchFromCloud();
+    } catch (err: any) {
+      showToast(`Gagal menghapus massal: ${err.message}`, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const AdminView = () => {
     const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
+
+    const handleSelectAll = (type: 'class' | 'student' | 'assignment', list: any[]) => {
+      const ids = list.map(item => item.id);
+      if (type === 'class') setSelectedClassIds(selectedClassIds.length === ids.length ? [] : ids);
+      else if (type === 'student') setSelectedStudentIds(selectedStudentIds.length === ids.length ? [] : ids);
+      else if (type === 'assignment') setSelectedAssignmentIds(selectedAssignmentIds.length === ids.length ? [] : ids);
+    };
+
+    const toggleSelectOne = (type: 'class' | 'student' | 'assignment', id: string) => {
+      if (type === 'class') setSelectedClassIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+      else if (type === 'student') setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+      else if (type === 'assignment') setSelectedAssignmentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
     return (
-      <div className="flex-1 p-6 sm:p-8 overflow-y-auto view-transition space-y-8 bg-slate-50/50 dark:bg-slate-900/50">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Admin Console</h2>
-          <p className="text-slate-500 font-medium">Kelola infrastruktur data sekolah Bapak</p>
+      <div className="flex-1 p-6 sm:p-10 overflow-y-auto view-transition space-y-8 bg-slate-50/50 dark:bg-slate-900/50">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Admin Console</h2>
+            <p className="text-slate-500 font-medium">Manajemen Infrastruktur Data Sekolah</p>
+          </div>
+          <button onClick={handleManualSave} disabled={isSyncing} className="bg-emerald-600 text-white px-6 py-3 rounded-2xl text-sm font-black shadow-lg">Refresh Sync</button>
         </div>
         
-        <div className="flex gap-1 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 w-fit">
+        <div className="flex gap-2 bg-white dark:bg-slate-800 p-2 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 w-fit">
             {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
-                <button key={tab} onClick={() => setAdminTab(tab)} className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+                <button key={tab} onClick={() => setAdminTab(tab)} className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
                     {tab}
                 </button>
             ))}
         </div>
 
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/50 dark:shadow-none overflow-hidden">
-             {adminTab === 'Database' ? (
-                <div className="p-12 text-center space-y-4">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600 text-2xl">☁️</div>
-                  <h3 className="text-xl font-bold">Sinkronisasi Cloud Aktif</h3>
-                  <p className="text-slate-500 max-w-sm mx-auto">Database Supabase Bapak berfungsi dengan baik. Semua data tersimpan secara real-time di server cloud.</p>
-                  <button onClick={handleManualSave} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold hover:scale-105 transition-transform active:scale-95 shadow-lg shadow-indigo-100">Refresh Data Sekarang</button>
+        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-xl overflow-hidden p-6">
+            {adminTab === 'Kelas' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-black">Daftar Semua Kelas</h3>
+                  <div className="flex gap-3">
+                    {selectedClassIds.length > 0 && (
+                      <button onClick={() => handleBulkDelete('class')} className="bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black border border-rose-200">Hapus Terpilih ({selectedClassIds.length})</button>
+                    )}
+                    <button onClick={() => openAdminModal('class')} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black shadow-lg shadow-indigo-100">+ Tambah Kelas</button>
+                  </div>
                 </div>
-             ) : (
-                <div className="p-8">Fitur manajemen {adminTab} tersedia di panel Admin. Bapak dapat menambah, mengedit, atau menghapus massal data di sini.</div>
-             )}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400">
+                      <tr>
+                        <th className="px-4 py-4 w-10 text-center border-b"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-4 h-4 rounded" /></th>
+                        <th className="px-6 py-4 text-left font-black uppercase tracking-widest text-[10px] border-b">Nama Kelas</th>
+                        <th className="px-6 py-4 text-right font-black uppercase tracking-widest text-[10px] border-b">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classes.map(c => (
+                        <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 border-b last:border-0 transition-colors">
+                          <td className="px-4 py-4 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-4 h-4 rounded" /></td>
+                          <td className="px-6 py-4 font-bold">{c.name}</td>
+                          <td className="px-6 py-4 text-right space-x-4">
+                            <button onClick={() => openAdminModal('class', c)} className="text-indigo-600 font-black text-xs uppercase">Edit</button>
+                            <button onClick={() => handleDeleteItem('class', c.id)} className="text-rose-600 font-black text-xs uppercase">Hapus</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'Siswa' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mobile-stack gap-4">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-black">Data Siswa</h3>
+                    <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-3">
+                    {selectedStudentIds.length > 0 && (
+                      <button onClick={() => handleBulkDelete('student')} className="bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus Terpilih ({selectedStudentIds.length})</button>
+                    )}
+                    <button onClick={() => openAdminModal('student')} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black">+ Siswa Baru</button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400">
+                      <tr>
+                        <th className="px-4 py-4 w-10 text-center border-b"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-4 h-4 rounded" /></th>
+                        <th className="px-6 py-4 text-left font-black uppercase text-[10px] border-b">Nama</th>
+                        <th className="px-6 py-4 text-left font-black uppercase text-[10px] border-b">NISN</th>
+                        <th className="px-6 py-4 text-right font-black uppercase text-[10px] border-b">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminSelectedClass?.students.map(s => (
+                        <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 border-b last:border-0 transition-colors">
+                          <td className="px-4 py-4 text-center"><input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleSelectOne('student', s.id)} className="w-4 h-4 rounded" /></td>
+                          <td className="px-6 py-4 font-bold">{s.name}</td>
+                          <td className="px-6 py-4 text-slate-500 font-medium">{s.nisn}</td>
+                          <td className="px-6 py-4 text-right space-x-4">
+                            <button onClick={() => openAdminModal('student', s)} className="text-indigo-600 font-black text-xs uppercase">Edit</button>
+                            <button onClick={() => handleDeleteItem('student', s.id)} className="text-rose-600 font-black text-xs uppercase">Hapus</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'Tugas' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center mobile-stack gap-4">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-black">Daftar Tugas</h3>
+                    <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-3">
+                    {selectedAssignmentIds.length > 0 && (
+                      <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus Terpilih ({selectedAssignmentIds.length})</button>
+                    )}
+                    <button onClick={() => openAdminModal('assignment')} className="bg-indigo-600 text-white px-6 py-3 rounded-2xl text-xs font-black">+ Tugas Baru</button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-900 text-slate-400">
+                      <tr>
+                        <th className="px-4 py-4 w-10 text-center border-b"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-4 h-4 rounded" /></th>
+                        <th className="px-6 py-4 text-left font-black uppercase text-[10px] border-b">Tugas</th>
+                        <th className="px-6 py-4 text-left font-black uppercase text-[10px] border-b">Tenggat</th>
+                        <th className="px-6 py-4 text-right font-black uppercase text-[10px] border-b">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminSelectedClass?.assignments?.map(a => (
+                        <tr key={a.id} className="hover:bg-slate-50 dark:hover:bg-slate-900 border-b last:border-0 transition-colors">
+                          <td className="px-4 py-4 text-center"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => toggleSelectOne('assignment', a.id)} className="w-4 h-4 rounded" /></td>
+                          <td className="px-6 py-4 font-bold">{a.title}</td>
+                          <td className="px-6 py-4 font-medium text-slate-500">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                          <td className="px-6 py-4 text-right space-x-4">
+                            <button onClick={() => openAdminModal('assignment', a)} className="text-indigo-600 font-black text-xs uppercase">Edit</button>
+                            <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 font-black text-xs uppercase">Hapus</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {adminTab === 'Database' && (
+                <div className="p-12 text-center space-y-4">
+                  <div className="w-20 h-20 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto text-3xl">📡</div>
+                  <h3 className="text-2xl font-black">Sinkronisasi Cloud Aktif</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto">Database Supabase Bapak berfungsi dengan baik. Semua data tersimpan secara real-time di server cloud.</p>
+                  <button onClick={handleManualSave} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black hover:scale-105 transition-all shadow-xl shadow-indigo-200">Refresh Data Sekarang</button>
+                </div>
+            )}
         </div>
+
+        <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`} footer={<div className="flex gap-3 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4 rounded-2xl font-black shadow-lg">SIMPAN DATA</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black">BATAL</button></div>}>
+            {showModal === 'class' && (
+                <div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" placeholder="Misal: X.9" /></div></div>
+            )}
+            {showModal === 'student' && (
+                <div className="space-y-5">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
+                    </div>
+                </div>
+            )}
+            {showModal === 'assignment' && (
+                <div className="space-y-5">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold h-24" /></div>
+                </div>
+            )}
+        </Modal>
       </div>
     );
   };
@@ -287,11 +477,11 @@ const App: React.FC = () => {
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 {[
-                    { label: 'Siswa', val: stats.total, color: 'text-slate-600', bg: 'bg-slate-100', icon: '👥' },
-                    { label: 'Hadir', val: stats.H, color: 'text-emerald-600', bg: 'bg-emerald-100', icon: '✅' },
-                    { label: 'Sakit', val: stats.S, color: 'text-blue-600', bg: 'bg-blue-100', icon: '🤒' },
-                    { label: 'Izin', val: stats.I, color: 'text-amber-600', bg: 'bg-amber-100', icon: '✉️' },
-                    { label: 'Alpa', val: stats.A, color: 'text-rose-600', bg: 'bg-rose-100', icon: '❌' },
+                    { label: 'Siswa', val: activeClass.students.length, color: 'text-slate-600', bg: 'bg-slate-100', icon: '👥' },
+                    { label: 'Hadir', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, color: 'text-emerald-600', bg: 'bg-emerald-100', icon: '✅' },
+                    { label: 'Sakit', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'S').length, color: 'text-blue-600', bg: 'bg-blue-100', icon: '🤒' },
+                    { label: 'Izin', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'I').length, color: 'text-amber-600', bg: 'bg-amber-100', icon: '✉️' },
+                    { label: 'Alpa', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'A').length, color: 'text-rose-600', bg: 'bg-rose-100', icon: '❌' },
                 ].map(stat => (
                     <div key={stat.label} className="bg-white dark:bg-slate-800 p-5 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-4">
                         <div className={`w-12 h-12 ${stat.bg} dark:bg-slate-700 rounded-2xl flex items-center justify-center text-xl`}>{stat.icon}</div>
@@ -364,7 +554,7 @@ const App: React.FC = () => {
                     <div className="space-y-6">
                         {activeClass.assignments && activeClass.assignments.length > 0 ? (
                             activeClass.assignments.map(a => {
-                                const submittedCount = Object.values(a.submissions).filter(s => s.isSubmitted).length;
+                                const submittedCount = Object.values(a.submissions).filter((s: any) => s.isSubmitted).length;
                                 const progress = Math.round((submittedCount / activeClass.students.length) * 100);
                                 return (
                                     <div key={a.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-3xl p-6 shadow-sm space-y-5">
@@ -415,28 +605,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
             </div>
-
-            <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal}` : `Tambah ${showModal}`} footer={<div className="flex gap-3 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4 rounded-2xl font-black shadow-lg">SIMPAN DATA</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 text-slate-600 py-4 rounded-2xl font-black">BATAL</button></div>}>
-                {showModal === 'class' && (
-                    <div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" placeholder="Misal: X.9" /></div></div>
-                )}
-                {showModal === 'student' && (
-                    <div className="space-y-5">
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
-                            <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
-                        </div>
-                    </div>
-                )}
-                {showModal === 'assignment' && (
-                    <div className="space-y-5">
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold" /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Deskripsi (Opsional)</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-4 font-bold h-24" /></div>
-                    </div>
-                )}
-            </Modal>
         </div>
     );
   };
@@ -469,6 +637,17 @@ const App: React.FC = () => {
             ))}
           </div>
           <div className="flex gap-3 pb-2">
+              {(reportTab === 'Daily' || reportTab === 'Weekly') && (
+                  <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pilih Tanggal:</span>
+                      <input 
+                          type="date" 
+                          value={formatDate(currentDate)} 
+                          onChange={(e) => setCurrentDate(new Date(e.target.value))}
+                          className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500 transition-all"
+                      />
+                  </div>
+              )}
               {reportTab === 'Semester' && (
                   <select value={activeSemester} onChange={e => setActiveSemester(parseInt(e.target.value) as 1 | 2)} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold">
                       <option value={1}>Semester 1 (Jan-Jun)</option><option value={2}>Semester 2 (Jul-Des)</option>
@@ -582,7 +761,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-200 flex relative overflow-hidden print:block">
+    <div className="h-screen w-screen bg-slate-50 dark:bg-slate-955 text-slate-800 dark:text-slate-200 flex relative overflow-hidden print:block">
       <nav className="w-72 bg-white dark:bg-slate-900 p-6 flex flex-col flex-shrink-0 border-r border-slate-100 dark:border-slate-800 z-20 print-hide">
         <div className="mb-12 flex items-center gap-4 px-2">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white text-xl font-black">11</div>
