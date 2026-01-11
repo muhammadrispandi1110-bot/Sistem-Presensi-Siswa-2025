@@ -11,170 +11,78 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
-            transition: background-color 0.3s, color 0.3s;
+            transition: background-color 0.5s ease, color 0.5s ease;
         }
         
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: #e2e8f0; }
-        .dark ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .dark ::-webkit-scrollbar-thumb { background: #334155; }
 
-        .glass-panel {
-            background: rgba(241, 245, 249, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 0, 0, 0.05);
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
         }
-        .dark .glass-panel {
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
         .active-gradient {
-            background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
-            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
-        }
-
-        .content-card {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .content-card:hover {
-            border-color: #4f46e5;
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+            box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
         }
 
         .view-transition {
-            animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: slideUpFade 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
-        @keyframes fadeInScale {
-            from { opacity: 0; transform: scale(0.98) translateY(10px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
+        @keyframes slideUpFade {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .login-bg {
-            background: radial-gradient(circle at top right, #e0e7ff, #f1f5f9);
+        .login-mesh {
+            background-color: #f8fafc;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0, transparent 50%), 
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0, transparent 50%);
         }
-        .dark .login-bg {
-             background: radial-gradient(circle at top right, #1e1b4b, #020617);
-        }
-
-        @media (max-width: 768px) {
-            .mobile-hide { display: none !important; }
-            .mobile-stack { flex-direction: column !important; }
-        }
-
-        .nav-link {
-            transition: all 0.2s;
-            position: relative;
-        }
-        .nav-link.active::after {
-            content: '';
-            position: absolute;
-            bottom: -4px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 20px;
-            height: 4px;
-            background: #6366f1;
-            border-radius: 2px;
+        .dark .login-mesh {
+            background-color: #020617;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.2) 0, transparent 50%), 
+                radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.15) 0, transparent 50%);
         }
 
-        input:focus, textarea:focus, select:focus {
-            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
-            outline: none;
-            border-color: #4f46e5;
+        .status-btn {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        .status-btn:active { transform: scale(0.9); }
 
         /* Print Styles */
         @media print {
-            @page {
-                size: landscape;
-                margin: 1.5cm;
-            }
-            
-            body, html {
-                height: auto !important;
-                overflow: visible !important;
-                background-color: white !important;
-                color: black !important;
-                width: 100% !important;
-            }
-            
-            #root, .h-screen {
-                height: auto !important;
-                overflow: visible !important;
-                display: block !important;
-            }
-
-            nav, .print-hide, button {
-                display: none !important;
-            }
-
-            main {
-                display: block !important;
-                height: auto !important;
-                overflow: visible !important;
-            }
-
-            .print-header {
-                display: block !important;
-                text-align: center;
-                margin-bottom: 30px;
-                border-bottom: 2px solid #000;
-                padding-bottom: 10px;
-            }
-            
-            .print-header h2 { font-size: 18pt !important; margin: 0; padding: 0; }
-            .print-header h3 { font-size: 14pt !important; margin: 5px 0; padding: 0; }
-            .print-header p { font-size: 12pt !important; margin: 0; padding: 0; text-transform: uppercase; }
-
-            table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                table-layout: auto !important;
-            }
-
-            tr { page-break-inside: avoid !important; }
-
-            th, td {
-                border: 1px solid #000 !important;
-                padding: 4px 6px !important;
-                font-size: 9pt !important;
-                color: #000 !important;
-                background: transparent !important;
-            }
-
-            thead { display: table-header-group !important; }
-
-            .text-emerald-700, .dark\:text-emerald-400 { color: #000 !important; }
-            .text-blue-700, .dark\:text-blue-400 { color: #000 !important; }
-            .text-amber-700, .dark\:text-amber-400 { color: #000 !important; }
-            .text-rose-700, .dark\:text-rose-400 { color: #000 !important; }
-            
-            .overflow-auto, .overflow-hidden, .flex-1 {
-                overflow: visible !important;
-                height: auto !important;
-                display: block !important;
-            }
+            @page { size: landscape; margin: 1cm; }
+            body { background: white !important; color: black !important; }
+            .print-hide { display: none !important; }
+            table { width: 100% !important; border-collapse: collapse !important; }
+            th, td { border: 1px solid #ddd !important; padding: 6px !important; font-size: 8pt !important; }
         }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react/jsx-runtime": "https://esm.sh/react@19.0.0/jsx-runtime",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.47.10",
-    "xlsx": "https://esm.sh/xlsx@0.18.5",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1"
   }
 }
 </script>
 </head>
-<body class="overflow-x-hidden bg-slate-100 dark:bg-slate-900">
+<body class="overflow-x-hidden login-mesh min-h-screen">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>
