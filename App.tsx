@@ -171,7 +171,7 @@ const App: React.FC = () => {
         else if (type === 'student') setAdminFormData({ ...adminFormData, studentName: item.name, studentNis: item.nis, studentNisn: item.nisn });
         else if (type === 'assignment') setAdminFormData({ ...adminFormData, assignmentTitle: item.title, assignmentDesc: item.description, assignmentDueDate: item.dueDate });
     } else {
-        setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: '' });
+        setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: formatDate(new Date()) });
     }
     setShowModal(type);
   };
@@ -334,6 +334,41 @@ const App: React.FC = () => {
                 </table></div>
               </div>
             )}
+            {adminTab === 'Tugas' && (
+              <div className="space-y-8">
+                <div className="flex justify-between items-center mobile-stack gap-6">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-2xl font-black tracking-tight">Pengelolaan Tugas</h3>
+                    <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex gap-3">
+                    {selectedAssignmentIds.length > 0 && <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedAssignmentIds.length})</button>}
+                    <button onClick={() => openAdminModal('assignment')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Tugas Baru</button>
+                  </div>
+                </div>
+                <div className="overflow-x-auto"><table className="w-full">
+                    <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
+                        <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
+                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Judul Tugas</th>
+                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Tenggat</th>
+                        <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
+                    </tr></thead>
+                    <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.assignments?.map(a => (
+                        <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                          <td className="py-5 text-center"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => toggleSelectOne('assignment', a.id)} className="w-5 h-5 rounded-lg" /></td>
+                          <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{a.title}</td>
+                          <td className="py-5 text-slate-500 font-medium">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                          <td className="py-5 text-right space-x-6">
+                            <button onClick={() => openAdminModal('assignment', a)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
+                            <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
+                          </td>
+                        </tr>
+                    ))}</tbody>
+                </table></div>
+              </div>
+            )}
             {adminTab === 'Database' && (
                 <div className="py-20 text-center space-y-6">
                   <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">🌐</div>
@@ -355,6 +390,13 @@ const App: React.FC = () => {
                         <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
                         <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
                     </div>
+                </div>
+            )}
+            {showModal === 'assignment' && (
+                <div className="space-y-6">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" placeholder="Contoh: Ulangan Harian 1" /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Keterangan / Deskripsi</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" rows={3} placeholder="Materi Bab 1..."></textarea></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
                 </div>
             )}
         </Modal>
