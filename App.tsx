@@ -167,6 +167,7 @@ const App: React.FC = () => {
         else if (type === 'student') setAdminFormData({ ...adminFormData, studentName: item.name, studentNis: item.nis, studentNisn: item.nisn });
         else if (type === 'assignment') setAdminFormData({ ...adminFormData, assignmentTitle: item.title, assignmentDesc: item.description, assignmentDueDate: item.dueDate });
     } else {
+        // Fix duplicate studentNis property in object literal
         setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: '' });
     }
     setShowModal(type);
@@ -490,7 +491,6 @@ const App: React.FC = () => {
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
     const semesterMonths = activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12);
     
-    // Formatting the print label for Baris 3
     const getPrintRekapLabel = () => {
         if (reportTab === 'Daily') return `Rekapan Tanggal: ${currentDate.toLocaleDateString('id-ID')}`;
         if (reportTab === 'Weekly') return `Rekapan Minggu: ${dates[0].toLocaleDateString('id-ID')} - ${dates[dates.length-1].toLocaleDateString('id-ID')}`;
@@ -499,7 +499,7 @@ const App: React.FC = () => {
     };
 
     return (
-      <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print:block">
+      <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print-scroll-reset">
         <div className="flex items-center justify-between mb-10 print-hide">
           <div className="space-y-1">
             <h2 className="text-4xl font-black tracking-tight">Laporan Presensi</h2>
@@ -568,14 +568,13 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Updated Print Header for ReportsView */}
         <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
           <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
           <h3 className="text-lg font-bold uppercase">LAPORAN PRESENSI KELAS {activeClass.name}</h3>
           <p className="text-sm font-semibold">{getPrintRekapLabel()}</p>
         </div>
 
-        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print:border-none print:p-0">
+        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset">
           <table className="min-w-full text-sm">
             <thead className="text-slate-400 border-b dark:border-slate-700">
                 {reportTab === 'Semester' ? (
@@ -636,7 +635,7 @@ const App: React.FC = () => {
     if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold">Laporan Memuat...</div>;
     const assignments = activeClass.assignments || [];
     return (
-      <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print:block">
+      <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print-scroll-reset">
         <div className="flex items-center justify-between mb-10 print-hide">
           <div className="space-y-1">
             <h2 className="text-4xl font-black tracking-tight">Rekap Nilai Tugas</h2>
@@ -645,14 +644,13 @@ const App: React.FC = () => {
           <button onClick={() => window.print()} className="bg-indigo-600 text-white px-10 py-4.5 rounded-[24px] text-sm font-black shadow-xl">Cetak Rekap Tugas</button>
         </div>
 
-        {/* Updated Print Header for TaskReportsView to be consistent */}
         <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
           <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
           <h3 className="text-lg font-bold uppercase">LAPORAN REKAP NILAI TUGAS KELAS {activeClass.name}</h3>
           <p className="text-sm font-semibold">Rekapan Kumulatif: Tahun Pelajaran {school.year}</p>
         </div>
 
-        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print:border-none">
+        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset">
           <table className="min-w-full text-sm">
             <thead className="text-slate-400 border-b dark:border-slate-700">
               <tr>
@@ -707,7 +705,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen w-screen text-slate-800 dark:text-slate-200 flex relative overflow-hidden print:block bg-slate-50 dark:bg-[#020617]">
+    <div className="h-screen w-screen text-slate-800 dark:text-slate-200 flex relative overflow-hidden print-scroll-reset bg-slate-50 dark:bg-[#020617]">
       <nav className="w-80 bg-white dark:bg-[#020617] p-10 flex flex-col flex-shrink-0 border-r dark:border-slate-800 z-20 print-hide">
         <div className="mb-16 flex items-center gap-5">
             <div className="w-14 h-14 bg-indigo-600 rounded-[22px] flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-100 dark:shadow-none">11</div>
@@ -733,7 +731,7 @@ const App: React.FC = () => {
             <p className="text-[9px] text-center font-black text-slate-400 tracking-widest uppercase opacity-50">V.2.0.26 Stable</p>
         </div>
       </nav>
-      <main className="flex-1 flex flex-col overflow-hidden print:block relative">
+      <main className="flex-1 flex flex-col overflow-hidden print-scroll-reset relative">
         {view === 'Dashboard' && <DashboardView />}
         {view === 'Reports' && <ReportsView />}
         {view === 'Admin' && <AdminView />}
