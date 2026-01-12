@@ -14,8 +14,16 @@ export const MONTHS_2026 = [
   { name: 'Desember', value: 11, days: 31 },
 ];
 
+/**
+ * Mengubah objek Date menjadi string format YYYY-MM-DD menggunakan waktu lokal.
+ * Penting untuk menghindari masalah zona waktu yang sering membuat tanggal bergeser +/- 1 hari.
+ */
 export const formatDate = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 export const isFutureDate = (date: Date): boolean => {
@@ -52,9 +60,12 @@ export const getMonthDates = (monthIndex: number, schedule?: number[]): Date[] =
 };
 
 export const getWeekDates = (baseDate: Date, schedule?: number[]): Date[] => {
-  const day = baseDate.getDay();
-  const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); 
-  const monday = new Date(baseDate.getFullYear(), baseDate.getMonth(), diff);
+  const d = new Date(baseDate);
+  d.setHours(0,0,0,0);
+  const day = d.getDay();
+  // Hitung selisih hari untuk mendapatkan hari Senin (1)
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
+  const monday = new Date(d.getFullYear(), d.getMonth(), diff);
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
   
@@ -72,6 +83,7 @@ export const getSemesterDates = (semester: number = 1, schedule?: number[]): Dat
 export const getNextTeachingDate = (date: Date, schedule: number[], direction: 'next' | 'prev'): Date => {
   const activeDays = schedule && schedule.length > 0 ? schedule : [1, 2, 3, 4, 5];
   let checkDate = new Date(date);
+  checkDate.setHours(0,0,0,0);
   
   for (let i = 0; i < 7; i++) {
     checkDate.setDate(checkDate.getDate() + (direction === 'next' ? 1 : -1));

@@ -76,7 +76,11 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewType>('Dashboard');
   const [reportTab, setReportTab] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Semester'>('Daily');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
-  const [currentDate, setCurrentDate] = useState(new Date(defaults.startYear, defaults.startMonth, 1));
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date(defaults.startYear, defaults.startMonth, 1);
+    d.setHours(0,0,0,0);
+    return d;
+  });
   const [activeMonth, setActiveMonth] = useState(defaults.startMonth);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showModal, setShowModal] = useState<'class' | 'student' | 'assignment' | null>(null);
@@ -167,7 +171,6 @@ const App: React.FC = () => {
         else if (type === 'student') setAdminFormData({ ...adminFormData, studentName: item.name, studentNis: item.nis, studentNisn: item.nisn });
         else if (type === 'assignment') setAdminFormData({ ...adminFormData, assignmentTitle: item.title, assignmentDesc: item.description, assignmentDueDate: item.dueDate });
     } else {
-        // Fix duplicate studentNis property in object literal
         setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: '' });
     }
     setShowModal(type);
@@ -412,7 +415,18 @@ const App: React.FC = () => {
                         <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">Presensi Hari Ini</h3>
                         <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
                             <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
-                            <input type="date" value={dateStr} onChange={(e) => setCurrentDate(new Date(e.target.value))} className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" />
+                            <input 
+                              type="date" 
+                              value={dateStr} 
+                              onChange={(e) => {
+                                // Buat date dari string YYYY-MM-DD dengan aman ke waktu lokal
+                                const [y, m, d] = e.target.value.split('-').map(Number);
+                                const newDate = new Date(y, m - 1, d);
+                                newDate.setHours(0,0,0,0);
+                                setCurrentDate(newDate);
+                              }} 
+                              className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
+                            />
                             <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
                         </div>
                     </div>
@@ -527,6 +541,7 @@ const App: React.FC = () => {
                               else {
                                   const d = new Date(currentDate);
                                   d.setDate(d.getDate() - 7);
+                                  d.setHours(0,0,0,0);
                                   setCurrentDate(d);
                               }
                           }} 
@@ -537,7 +552,12 @@ const App: React.FC = () => {
                       <input 
                           type="date" 
                           value={formatDate(currentDate)} 
-                          onChange={(e) => setCurrentDate(new Date(e.target.value))} 
+                          onChange={(e) => {
+                            const [y, m, d] = e.target.value.split('-').map(Number);
+                            const newDate = new Date(y, m - 1, d);
+                            newDate.setHours(0,0,0,0);
+                            setCurrentDate(newDate);
+                          }} 
                           className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
                       />
                       <button 
@@ -546,6 +566,7 @@ const App: React.FC = () => {
                               else {
                                   const d = new Date(currentDate);
                                   d.setDate(d.getDate() + 7);
+                                  d.setHours(0,0,0,0);
                                   setCurrentDate(d);
                               }
                           }} 
@@ -595,7 +616,7 @@ const App: React.FC = () => {
                   <tr>
                     <th className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
                     <th className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[240px]">Siswa</th>
-                    {dates.map(d => (<th key={d.toISOString()} className="px-2 py-6 text-center border-r dark:border-slate-700 text-[10px] font-black">{d.getDate()}</th>))}
+                    {dates.map(d => (<th key={formatDate(d)} className="px-2 py-6 text-center border-r dark:border-slate-700 text-[10px] font-black">{d.getDate()}</th>))}
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">H</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">S</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">I</th>
