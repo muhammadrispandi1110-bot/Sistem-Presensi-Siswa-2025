@@ -500,13 +500,73 @@ const App: React.FC = () => {
           <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-4.5 rounded-[24px] text-sm font-black shadow-xl hover:scale-105 active:scale-95 transition-all">Cetak Laporan</button>
         </div>
         
-        <div className="flex gap-8 border-b dark:border-slate-800 mb-10 print-hide">
-          {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (
-              <button key={tab} onClick={() => setReportTab(tab)} className={`pb-5 text-sm font-black transition-all relative ${reportTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
-                  {tab === 'Daily' ? 'Harian' : tab === 'Weekly' ? 'Mingguan' : tab === 'Monthly' ? 'Bulanan' : 'Semester'}
-                  {reportTab === tab && <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-indigo-600 rounded-full"></div>}
-              </button>
-          ))}
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b dark:border-slate-800 mb-10 gap-6 print-hide">
+          <div className="flex gap-8">
+            {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (
+                <button key={tab} onClick={() => setReportTab(tab)} className={`pb-5 text-sm font-black transition-all relative ${reportTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
+                    {tab === 'Daily' ? 'Harian' : tab === 'Weekly' ? 'Mingguan' : tab === 'Monthly' ? 'Bulanan' : 'Semester'}
+                    {reportTab === tab && <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-indigo-600 rounded-full"></div>}
+                </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-4 pb-4">
+              {/* Kontrol Tanggal Baru untuk Laporan Harian & Mingguan */}
+              {(reportTab === 'Daily' || reportTab === 'Weekly') && (
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
+                      <button 
+                          onClick={() => {
+                              if (reportTab === 'Daily') setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'));
+                              else {
+                                  const d = new Date(currentDate);
+                                  d.setDate(d.getDate() - 7);
+                                  setCurrentDate(d);
+                              }
+                          }} 
+                          className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
+                      >
+                          ←
+                      </button>
+                      <input 
+                          type="date" 
+                          value={formatDate(currentDate)} 
+                          onChange={(e) => setCurrentDate(new Date(e.target.value))} 
+                          className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
+                      />
+                      <button 
+                          onClick={() => {
+                              if (reportTab === 'Daily') setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'));
+                              else {
+                                  const d = new Date(currentDate);
+                                  d.setDate(d.getDate() + 7);
+                                  setCurrentDate(d);
+                              }
+                          }} 
+                          className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
+                      >
+                          →
+                      </button>
+                  </div>
+              )}
+              {reportTab === 'Monthly' && (
+                  <select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600">
+                      {MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                  </select>
+              )}
+              {reportTab === 'Semester' && (
+                  <select value={activeSemester} onChange={e => setActiveSemester(parseInt(e.target.value) as 1 | 2)} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600">
+                      <option value={1}>Semester 1 (Jan-Jun)</option><option value={2}>Semester 2 (Jul-Des)</option>
+                  </select>
+              )}
+          </div>
+        </div>
+
+        <div className="hidden print-header text-center mb-10 border-b-4 border-slate-900 pb-6">
+          <h2 className="text-2xl font-black">{school.name}</h2>
+          <h3 className="text-xl font-bold">REKAPAN KEHADIRAN SISWA - {activeClass.name}</h3>
+          <p className="font-black text-sm uppercase">
+              {reportTab === 'Weekly' ? `MINGGU KE: ${dates[0].toLocaleDateString('id-ID')} - ${dates[dates.length-1].toLocaleDateString('id-ID')}` : reportTab.toUpperCase()}
+          </p>
         </div>
 
         <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print:border-none print:p-0">
