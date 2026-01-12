@@ -252,6 +252,11 @@ const App: React.FC = () => {
       else if (type === 'assignment') setSelectedAssignmentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
+    const getDayLabels = (schedule: number[] = []) => {
+      if (!schedule || schedule.length === 0) return '-';
+      return schedule.sort().map(d => DAY_NAMES[d].substring(0, 1)).join(', ');
+    };
+
     return (
       <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-10">
         <div className="flex items-center justify-between">
@@ -284,12 +289,14 @@ const App: React.FC = () => {
                     <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
                         <th className="pb-4 text-center"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
                         <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Kelas</th>
+                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal Mengajar</th>
                         <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
                     </tr></thead>
                     <tbody className="divide-y dark:divide-slate-700">{classes.map(c => (
                         <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
                           <td className="py-5 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-5 h-5 rounded-lg" /></td>
                           <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                          <td className="py-5 text-slate-500 font-bold text-xs uppercase tracking-widest">{getDayLabels(c.schedule)}</td>
                           <td className="py-5 text-right space-x-6">
                             <button onClick={() => openAdminModal('class', c)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase hover:underline">Edit</button>
                             <button onClick={() => handleDeleteItem('class', c.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase hover:underline">Hapus</button>
@@ -379,9 +386,37 @@ const App: React.FC = () => {
             )}
         </div>
 
-        <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal}` : `Tambah ${showModal}`} footer={<div className="flex gap-4 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4.5 rounded-[24px] font-black shadow-lg">SIMPAN</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-4.5 rounded-[24px] font-black">BATAL</button></div>}>
+        <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`} footer={<div className="flex gap-4 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4.5 rounded-[24px] font-black shadow-lg">SIMPAN</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-4.5 rounded-[24px] font-black">BATAL</button></div>}>
             {showModal === 'class' && (
-                <div className="space-y-4"><div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Kelas</label><input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" placeholder="Contoh: X.9" /></div></div>
+                <div className="space-y-8">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Kelas</label>
+                    <input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold shadow-inner" placeholder="Contoh: X.9" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 block mb-4">Hari Mengajar</label>
+                    <div className="grid grid-cols-5 gap-3">
+                      {[1, 2, 3, 4, 5].map(day => {
+                        const isSelected = adminFormData.schedule.includes(day);
+                        return (
+                          <button 
+                            key={day} 
+                            type="button"
+                            onClick={() => {
+                              const newSched = isSelected 
+                                ? adminFormData.schedule.filter(d => d !== day) 
+                                : [...adminFormData.schedule, day].sort();
+                              setAdminFormData({...adminFormData, schedule: newSched});
+                            }}
+                            className={`py-4 rounded-2xl text-xs font-black transition-all border-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-200'}`}
+                          >
+                            {DAY_NAMES[day].substring(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
             )}
             {showModal === 'student' && (
                 <div className="space-y-6">
@@ -461,7 +496,6 @@ const App: React.FC = () => {
                               type="date" 
                               value={dateStr} 
                               onChange={(e) => {
-                                // Buat date dari string YYYY-MM-DD dengan aman ke waktu lokal
                                 const [y, m, d] = e.target.value.split('-').map(Number);
                                 const newDate = new Date(y, m - 1, d);
                                 newDate.setHours(0,0,0,0);
