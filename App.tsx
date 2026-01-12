@@ -489,6 +489,14 @@ const App: React.FC = () => {
     if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold">Laporan Memuat...</div>;
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
     const semesterMonths = activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12);
+    
+    // Formatting the print label for Baris 3
+    const getPrintRekapLabel = () => {
+        if (reportTab === 'Daily') return `Rekapan Tanggal: ${currentDate.toLocaleDateString('id-ID')}`;
+        if (reportTab === 'Weekly') return `Rekapan Minggu: ${dates[0].toLocaleDateString('id-ID')} - ${dates[dates.length-1].toLocaleDateString('id-ID')}`;
+        if (reportTab === 'Monthly') return `Rekapan Bulan: ${MONTHS_2026.find(m => m.value === activeMonth)?.name} 2026`;
+        return `Rekapan Semester: ${activeSemester} (Tahun Pelajaran ${school.year})`;
+    };
 
     return (
       <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print:block">
@@ -511,7 +519,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4 pb-4">
-              {/* Kontrol Tanggal Baru untuk Laporan Harian & Mingguan */}
               {(reportTab === 'Daily' || reportTab === 'Weekly') && (
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
                       <button 
@@ -561,12 +568,11 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden print-header text-center mb-10 border-b-4 border-slate-900 pb-6">
-          <h2 className="text-2xl font-black">{school.name}</h2>
-          <h3 className="text-xl font-bold">REKAPAN KEHADIRAN SISWA - {activeClass.name}</h3>
-          <p className="font-black text-sm uppercase">
-              {reportTab === 'Weekly' ? `MINGGU KE: ${dates[0].toLocaleDateString('id-ID')} - ${dates[dates.length-1].toLocaleDateString('id-ID')}` : reportTab.toUpperCase()}
-          </p>
+        {/* Updated Print Header for ReportsView */}
+        <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
+          <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
+          <h3 className="text-lg font-bold uppercase">LAPORAN PRESENSI KELAS {activeClass.name}</h3>
+          <p className="text-sm font-semibold">{getPrintRekapLabel()}</p>
         </div>
 
         <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print:border-none print:p-0">
@@ -638,6 +644,14 @@ const App: React.FC = () => {
           </div>
           <button onClick={() => window.print()} className="bg-indigo-600 text-white px-10 py-4.5 rounded-[24px] text-sm font-black shadow-xl">Cetak Rekap Tugas</button>
         </div>
+
+        {/* Updated Print Header for TaskReportsView to be consistent */}
+        <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
+          <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
+          <h3 className="text-lg font-bold uppercase">LAPORAN REKAP NILAI TUGAS KELAS {activeClass.name}</h3>
+          <p className="text-sm font-semibold">Rekapan Kumulatif: Tahun Pelajaran {school.year}</p>
+        </div>
+
         <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print:border-none">
           <table className="min-w-full text-sm">
             <thead className="text-slate-400 border-b dark:border-slate-700">
