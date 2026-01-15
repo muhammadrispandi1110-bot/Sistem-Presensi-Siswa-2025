@@ -48,6 +48,289 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
   );
 };
 
+// --- SUB-COMPONENTS EXTRACTED TO PREVENT RE-RENDERING FOCUS LOSS ---
+
+const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, dateStr, school, isSyncing, handleManualSave, handleAttendanceChange, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
+  if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Menghubungkan ke Kelas...</div>;
+
+  return (
+    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-12 bg-slate-50/40 dark:bg-transparent">
+        <div className="flex items-center justify-between mobile-stack gap-8">
+            <div className="space-y-2">
+                <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{activeClass.name}</h2>
+                <div className="flex items-center gap-4">
+                    <span className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full tracking-widest">{school.name}</span>
+                    <span className="text-slate-500 text-sm font-bold flex items-center gap-2">🗓️ {DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID')}</span>
+                </div>
+            </div>
+            <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
+                <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+                {isSyncing ? 'Menyimpan...' : 'Simpan Perubahan'}
+            </button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-5">
+            {[
+                { label: 'Siswa', val: activeClass.students.length, icon: '👥', color: 'slate' },
+                { label: 'Hadir', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, icon: '✅', color: 'emerald' },
+                { label: 'Sakit', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'S').length, icon: '🤒', color: 'blue' },
+                { label: 'Izin', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'I').length, icon: '✉️', color: 'amber' },
+                { label: 'Alpa', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'A').length, icon: '❌', color: 'rose' },
+            ].map(stat => (
+                <div key={stat.label} className="bg-white dark:bg-slate-800 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
+                    <div className={`w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-2xl`}>{stat.icon}</div>
+                    <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
+                        <p className="text-2xl font-black text-slate-900 dark:text-white leading-none mt-1">{stat.val}</p>
+                    </div>
+                </div>
+            ))}
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
+            <div className="xl:col-span-2 space-y-8">
+                <div className="flex items-center justify-between px-2">
+                    <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">Presensi Hari Ini</h3>
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
+                        <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
+                        <input 
+                          type="date" 
+                          value={dateStr} 
+                          onChange={(e) => {
+                            const [y, m, d] = e.target.value.split('-').map(Number);
+                            const newDate = new Date(y, m - 1, d);
+                            newDate.setHours(0,0,0,0);
+                            setCurrentDate(newDate);
+                          }} 
+                          className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
+                        />
+                        <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {activeClass.students.map((student: any, idx: number) => {
+                        const status = attendance[student.id]?.[dateStr] || 'H';
+                        const theme = STATUS_THEMES[status];
+                        return (
+                            <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                                <div className="flex items-center gap-5 truncate">
+                                    <div className={`w-12 h-12 rounded-2xl ${theme.bg} ${theme.color} flex items-center justify-center font-black text-sm border ${theme.border}`}>
+                                        {idx + 1}
+                                    </div>
+                                    <div className="truncate">
+                                        <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{student.name}</p>
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">NISN: {student.nisn || '-'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-[20px] ml-4">
+                                    {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(s => {
+                                        const isActive = status === s;
+                                        return (
+                                            <button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} className={`status-btn w-9 h-9 rounded-xl font-black text-xs transition-all ${isActive ? `${STATUS_THEMES[s].bg} ${STATUS_THEMES[s].color} shadow-sm border ${STATUS_THEMES[s].border}` : 'text-slate-300 hover:bg-white dark:hover:bg-slate-700'}`}>
+                                                {s}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            <div className="space-y-8">
+                <h3 className="text-2xl font-black tracking-tight px-2">Tugas & Nilai</h3>
+                <div className="space-y-6">
+                    {activeClass.assignments?.map((a: any) => {
+                        return (
+                            <div key={a.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[36px] p-8 shadow-sm space-y-6">
+                                <div className="flex justify-between items-start">
+                                    <div className="space-y-1">
+                                        <h4 className="font-black text-slate-900 dark:text-white leading-tight text-lg">{a.title}</h4>
+                                        <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Tenggat: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
+                                    </div>
+                                    <button onClick={() => openAdminModal('assignment', a)} className="p-3 text-slate-300 hover:text-indigo-600 transition-colors">⚙️</button>
+                                </div>
+                                <div className="space-y-4 max-h-64 overflow-y-auto pr-3 custom-scrollbar">
+                                    {activeClass.students.map((s: any, idx: number) => {
+                                        const sub = a.submissions[s.id];
+                                        const isSub = sub?.isSubmitted || false;
+                                        return (
+                                            <div key={s.id} className="flex items-center justify-between">
+                                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{idx+1}. {s.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <input type="text" defaultValue={sub?.score || ''} onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} disabled={!isSub} className="w-12 bg-slate-50 dark:bg-slate-900 border-none text-center rounded-xl p-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 disabled:opacity-20" placeholder="--" />
+                                                    <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isSub ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-300'}`}>✓</button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+};
+
+const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete }: any) => {
+  const adminSelectedClass = useMemo(() => classes.find((c:any) => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
+
+  const handleSelectAll = (type: 'class' | 'student' | 'assignment', list: any[]) => {
+    const ids = list.map(item => item.id);
+    if (type === 'class') setSelectedClassIds(selectedClassIds.length === ids.length ? [] : ids);
+    else if (type === 'student') setSelectedStudentIds(selectedStudentIds.length === ids.length ? [] : ids);
+    else if (type === 'assignment') setSelectedAssignmentIds(selectedAssignmentIds.length === ids.length ? [] : ids);
+  };
+
+  const toggleSelectOne = (type: 'class' | 'student' | 'assignment', id: string) => {
+    if (type === 'class') setSelectedClassIds((prev:any) => prev.includes(id) ? prev.filter((i:any) => i !== id) : [...prev, id]);
+    else if (type === 'student') setSelectedStudentIds((prev:any) => prev.includes(id) ? prev.filter((i:any) => i !== id) : [...prev, id]);
+    else if (type === 'assignment') setSelectedAssignmentIds((prev:any) => prev.includes(id) ? prev.filter((i:any) => i !== id) : [...prev, id]);
+  };
+
+  const getDayLabels = (schedule: number[] = []) => {
+    if (!schedule || schedule.length === 0) return '-';
+    return schedule.sort().map(d => DAY_NAMES[d].substring(0, 1)).join(', ');
+  };
+
+  return (
+    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-10">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">Admin Panel</h2>
+          <p className="text-slate-500 font-medium">Pengelolaan Basis Data SMAN 11</p>
+        </div>
+        <button onClick={handleManualSave} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">Sinkronisasi</button>
+      </div>
+      
+      <div className="flex gap-2 p-1.5 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl w-fit">
+          {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
+              <button key={tab} onClick={() => setAdminTab(tab)} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
+                  {tab}
+              </button>
+          ))}
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden p-8 sm:p-10">
+          {adminTab === 'Kelas' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center">
+                <h3 className="text-2xl font-black tracking-tight">Daftar Kelas</h3>
+                <div className="flex gap-3">
+                  {selectedClassIds.length > 0 && <button onClick={() => handleBulkDelete('class')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedClassIds.length})</button>}
+                  <button onClick={() => openAdminModal('class')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-indigo-100">+ Kelas Baru</button>
+                </div>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full">
+                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
+                      <th className="pb-4 text-center"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Kelas</th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal Mengajar</th>
+                      <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
+                  </tr></thead>
+                  <tbody className="divide-y dark:divide-slate-700">{classes.map((c:any) => (
+                      <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="py-5 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-5 h-5 rounded-lg" /></td>
+                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                        <td className="py-5 text-slate-500 font-bold text-xs uppercase tracking-widest">{getDayLabels(c.schedule)}</td>
+                        <td className="py-5 text-right space-x-6">
+                          <button onClick={() => openAdminModal('class', c)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase hover:underline">Edit</button>
+                          <button onClick={() => handleDeleteItem('class', c.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase hover:underline">Hapus</button>
+                        </td>
+                      </tr>
+                  ))}</tbody>
+              </table></div>
+            </div>
+          )}
+          {adminTab === 'Siswa' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center mobile-stack gap-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-2xl font-black tracking-tight">Data Siswa</h3>
+                  <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                    {classes.map((c:any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  {selectedStudentIds.length > 0 && <button onClick={() => handleBulkDelete('student')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedStudentIds.length})</button>}
+                  <button onClick={() => openAdminModal('student')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Siswa</button>
+                </div>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full">
+                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
+                      <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Lengkap</th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">NISN</th>
+                      <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
+                  </tr></thead>
+                  <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.students.map((s:any) => (
+                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="py-5 text-center"><input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleSelectOne('student', s.id)} className="w-5 h-5 rounded-lg" /></td>
+                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{s.name}</td>
+                        <td className="py-5 text-slate-500 font-medium">{s.nisn}</td>
+                        <td className="py-5 text-right space-x-6">
+                          <button onClick={() => openAdminModal('student', s)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
+                          <button onClick={() => handleDeleteItem('student', s.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
+                        </td>
+                      </tr>
+                  ))}</tbody>
+              </table></div>
+            </div>
+          )}
+          {adminTab === 'Tugas' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-center mobile-stack gap-6">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-2xl font-black tracking-tight">Pengelolaan Tugas</h3>
+                  <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                    {classes.map((c:any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="flex gap-3">
+                  {selectedAssignmentIds.length > 0 && <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedAssignmentIds.length})</button>}
+                  <button onClick={() => openAdminModal('assignment')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Tugas Baru</button>
+                </div>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full">
+                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
+                      <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Judul Tugas</th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Tenggat</th>
+                      <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
+                  </tr></thead>
+                  <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.assignments?.map((a:any) => (
+                      <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="py-5 text-center"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => toggleSelectOne('assignment', a.id)} className="w-5 h-5 rounded-lg" /></td>
+                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{a.title}</td>
+                        <td className="py-5 text-slate-500 font-medium">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                        <td className="py-5 text-right space-x-6">
+                          <button onClick={() => openAdminModal('assignment', a)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
+                          <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
+                        </td>
+                      </tr>
+                  ))}</tbody>
+              </table></div>
+            </div>
+          )}
+          {adminTab === 'Database' && (
+              <div className="py-20 text-center space-y-6">
+                <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">🌐</div>
+                <div><h3 className="text-3xl font-black tracking-tight">Cloud Database Connected</h3>
+                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">Sistem tersambung ke Supabase. Seluruh data presensi dan nilai tersimpan secara aman di pusat data cloud Bapak.</p></div>
+                <button onClick={handleManualSave} className="bg-indigo-600 text-white px-12 py-5 rounded-[24px] font-black hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-indigo-100">Sync Data Manual</button>
+              </div>
+          )}
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN APP COMPONENT ---
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -164,7 +447,7 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const openAdminModal = (type: 'class' | 'student' | 'assignment', item: any = null) => {
+  const openAdminModal = useCallback((type: 'class' | 'student' | 'assignment', item: any = null) => {
     setEditingItem(item);
     if (item) {
         if (type === 'class') setAdminFormData({ ...adminFormData, className: item.name, schedule: item.schedule || defaults.teachingDays });
@@ -174,9 +457,10 @@ const App: React.FC = () => {
         setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: formatDate(new Date()) });
     }
     setShowModal(type);
-  };
+  }, [adminFormData, defaults.teachingDays]);
 
-  const handleAdminSave = async () => {
+  const handleAdminSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!supabase) return;
     setIsSyncing(true);
     try {
@@ -238,344 +522,19 @@ const App: React.FC = () => {
     }
   };
 
-  const AdminView = () => {
-    const adminSelectedClass = useMemo(() => classes.find(c => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
-    const handleSelectAll = (type: 'class' | 'student' | 'assignment', list: any[]) => {
-      const ids = list.map(item => item.id);
-      if (type === 'class') setSelectedClassIds(selectedClassIds.length === ids.length ? [] : ids);
-      else if (type === 'student') setSelectedStudentIds(selectedStudentIds.length === ids.length ? [] : ids);
-      else if (type === 'assignment') setSelectedAssignmentIds(selectedAssignmentIds.length === ids.length ? [] : ids);
-    };
-    const toggleSelectOne = (type: 'class' | 'student' | 'assignment', id: string) => {
-      if (type === 'class') setSelectedClassIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-      else if (type === 'student') setSelectedStudentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-      else if (type === 'assignment') setSelectedAssignmentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-    };
-
-    const getDayLabels = (schedule: number[] = []) => {
-      if (!schedule || schedule.length === 0) return '-';
-      return schedule.sort().map(d => DAY_NAMES[d].substring(0, 1)).join(', ');
-    };
-
-    return (
-      <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">Admin Panel</h2>
-            <p className="text-slate-500 font-medium">Pengelolaan Basis Data SMAN 11</p>
-          </div>
-          <button onClick={handleManualSave} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">Sinkronisasi</button>
-        </div>
-        
-        <div className="flex gap-2 p-1.5 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl w-fit">
-            {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
-                <button key={tab} onClick={() => setAdminTab(tab)} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
-                    {tab}
-                </button>
-            ))}
-        </div>
-
-        <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden p-8 sm:p-10">
-            {adminTab === 'Kelas' && (
-              <div className="space-y-8">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-2xl font-black tracking-tight">Daftar Kelas</h3>
-                  <div className="flex gap-3">
-                    {selectedClassIds.length > 0 && <button onClick={() => handleBulkDelete('class')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedClassIds.length})</button>}
-                    <button onClick={() => openAdminModal('class')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-indigo-100">+ Kelas Baru</button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto"><table className="w-full">
-                    <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                        <th className="pb-4 text-center"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Kelas</th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal Mengajar</th>
-                        <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
-                    </tr></thead>
-                    <tbody className="divide-y dark:divide-slate-700">{classes.map(c => (
-                        <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                          <td className="py-5 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-5 h-5 rounded-lg" /></td>
-                          <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
-                          <td className="py-5 text-slate-500 font-bold text-xs uppercase tracking-widest">{getDayLabels(c.schedule)}</td>
-                          <td className="py-5 text-right space-x-6">
-                            <button onClick={() => openAdminModal('class', c)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase hover:underline">Edit</button>
-                            <button onClick={() => handleDeleteItem('class', c.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase hover:underline">Hapus</button>
-                          </td>
-                        </tr>
-                    ))}</tbody>
-                </table></div>
-              </div>
-            )}
-            {adminTab === 'Siswa' && (
-              <div className="space-y-8">
-                <div className="flex justify-between items-center mobile-stack gap-6">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-2xl font-black tracking-tight">Data Siswa</h3>
-                    <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
-                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex gap-3">
-                    {selectedStudentIds.length > 0 && <button onClick={() => handleBulkDelete('student')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedStudentIds.length})</button>}
-                    <button onClick={() => openAdminModal('student')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Siswa</button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto"><table className="w-full">
-                    <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                        <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg" /></th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Lengkap</th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">NISN</th>
-                        <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
-                    </tr></thead>
-                    <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.students.map(s => (
-                        <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                          <td className="py-5 text-center"><input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleSelectOne('student', s.id)} className="w-5 h-5 rounded-lg" /></td>
-                          <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{s.name}</td>
-                          <td className="py-5 text-slate-500 font-medium">{s.nisn}</td>
-                          <td className="py-5 text-right space-x-6">
-                            <button onClick={() => openAdminModal('student', s)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
-                            <button onClick={() => handleDeleteItem('student', s.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
-                          </td>
-                        </tr>
-                    ))}</tbody>
-                </table></div>
-              </div>
-            )}
-            {adminTab === 'Tugas' && (
-              <div className="space-y-8">
-                <div className="flex justify-between items-center mobile-stack gap-6">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-2xl font-black tracking-tight">Pengelolaan Tugas</h3>
-                    <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
-                      {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="flex gap-3">
-                    {selectedAssignmentIds.length > 0 && <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedAssignmentIds.length})</button>}
-                    <button onClick={() => openAdminModal('assignment')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Tugas Baru</button>
-                  </div>
-                </div>
-                <div className="overflow-x-auto"><table className="w-full">
-                    <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                        <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Judul Tugas</th>
-                        <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Tenggat</th>
-                        <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
-                    </tr></thead>
-                    <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.assignments?.map(a => (
-                        <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                          <td className="py-5 text-center"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => toggleSelectOne('assignment', a.id)} className="w-5 h-5 rounded-lg" /></td>
-                          <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{a.title}</td>
-                          <td className="py-5 text-slate-500 font-medium">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
-                          <td className="py-5 text-right space-x-6">
-                            <button onClick={() => openAdminModal('assignment', a)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
-                            <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
-                          </td>
-                        </tr>
-                    ))}</tbody>
-                </table></div>
-              </div>
-            )}
-            {adminTab === 'Database' && (
-                <div className="py-20 text-center space-y-6">
-                  <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">🌐</div>
-                  <div><h3 className="text-3xl font-black tracking-tight">Cloud Database Connected</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">Sistem tersambung ke Supabase. Seluruh data presensi dan nilai tersimpan secara aman di pusat data cloud Bapak.</p></div>
-                  <button onClick={handleManualSave} className="bg-indigo-600 text-white px-12 py-5 rounded-[24px] font-black hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-indigo-100">Sync Data Manual</button>
-                </div>
-            )}
-        </div>
-
-        <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`} footer={<div className="flex gap-4 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4.5 rounded-[24px] font-black shadow-lg">SIMPAN</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-4.5 rounded-[24px] font-black">BATAL</button></div>}>
-            {showModal === 'class' && (
-                <div className="space-y-8">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Kelas</label>
-                    <input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold shadow-inner" placeholder="Contoh: X.9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 block mb-4">Hari Mengajar</label>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[1, 2, 3, 4, 5].map(day => {
-                        const isSelected = adminFormData.schedule.includes(day);
-                        return (
-                          <button 
-                            key={day} 
-                            type="button"
-                            onClick={() => {
-                              const newSched = isSelected 
-                                ? adminFormData.schedule.filter(d => d !== day) 
-                                : [...adminFormData.schedule, day].sort();
-                              setAdminFormData({...adminFormData, schedule: newSched});
-                            }}
-                            className={`py-4 rounded-2xl text-xs font-black transition-all border-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-200'}`}
-                          >
-                            {DAY_NAMES[day].substring(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-            )}
-            {showModal === 'student' && (
-                <div className="space-y-6">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Lengkap</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                    </div>
-                </div>
-            )}
-            {showModal === 'assignment' && (
-                <div className="space-y-6">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" placeholder="Contoh: Ulangan Harian 1" /></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Keterangan / Deskripsi</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" rows={3} placeholder="Materi Bab 1..."></textarea></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                </div>
-            )}
-        </Modal>
-      </div>
-    );
+  const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
+      if(!supabase) return;
+      await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
+      fetchFromCloud();
+  };
+  
+  const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
+      if(!supabase) return;
+      await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
+      fetchFromCloud();
   };
 
-  const DashboardView = () => {
-    if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Menghubungkan ke Kelas...</div>;
-    const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
-        if(!supabase) return;
-        await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
-        fetchFromCloud();
-    };
-    const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
-        if(!supabase) return;
-        await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
-        fetchFromCloud();
-    };
-
-    return (
-        <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-12 bg-slate-50/40 dark:bg-transparent">
-            <div className="flex items-center justify-between mobile-stack gap-8">
-                <div className="space-y-2">
-                    <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{activeClass.name}</h2>
-                    <div className="flex items-center gap-4">
-                        <span className="px-4 py-1.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full tracking-widest">{school.name}</span>
-                        <span className="text-slate-500 text-sm font-bold flex items-center gap-2">🗓️ {DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID')}</span>
-                    </div>
-                </div>
-                <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
-                    <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                    {isSyncing ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </button>
-            </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-5">
-                {[
-                    { label: 'Siswa', val: activeClass.students.length, icon: '👥', color: 'slate' },
-                    { label: 'Hadir', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, icon: '✅', color: 'emerald' },
-                    { label: 'Sakit', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'S').length, icon: '🤒', color: 'blue' },
-                    { label: 'Izin', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'I').length, icon: '✉️', color: 'amber' },
-                    { label: 'Alpa', val: activeClass.students.filter(s => attendance[s.id]?.[dateStr] === 'A').length, icon: '❌', color: 'rose' },
-                ].map(stat => (
-                    <div key={stat.label} className="bg-white dark:bg-slate-800 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
-                        <div className={`w-14 h-14 rounded-2xl bg-${stat.color}-50 dark:bg-${stat.color}-500/10 flex items-center justify-center text-2xl`}>{stat.icon}</div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-                            <p className="text-2xl font-black text-slate-900 dark:text-white leading-none mt-1">{stat.val}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
-                <div className="xl:col-span-2 space-y-8">
-                    <div className="flex items-center justify-between px-2">
-                        <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">Presensi Hari Ini</h3>
-                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
-                            <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
-                            <input 
-                              type="date" 
-                              value={dateStr} 
-                              onChange={(e) => {
-                                const [y, m, d] = e.target.value.split('-').map(Number);
-                                const newDate = new Date(y, m - 1, d);
-                                newDate.setHours(0,0,0,0);
-                                setCurrentDate(newDate);
-                              }} 
-                              className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
-                            />
-                            <button onClick={() => setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {activeClass.students.map((student, idx) => {
-                            const status = attendance[student.id]?.[dateStr] || 'H';
-                            const theme = STATUS_THEMES[status];
-                            return (
-                                <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
-                                    <div className="flex items-center gap-5 truncate">
-                                        <div className={`w-12 h-12 rounded-2xl ${theme.bg} ${theme.color} flex items-center justify-center font-black text-sm border ${theme.border}`}>
-                                            {idx + 1}
-                                        </div>
-                                        <div className="truncate">
-                                            <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{student.name}</p>
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">NISN: {student.nisn || '-'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-1.5 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-[20px] ml-4">
-                                        {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(s => {
-                                            const isActive = status === s;
-                                            return (
-                                                <button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} className={`status-btn w-9 h-9 rounded-xl font-black text-xs transition-all ${isActive ? `${STATUS_THEMES[s].bg} ${STATUS_THEMES[s].color} shadow-sm border ${STATUS_THEMES[s].border}` : 'text-slate-300 hover:bg-white dark:hover:bg-slate-700'}`}>
-                                                    {s}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className="space-y-8">
-                    <h3 className="text-2xl font-black tracking-tight px-2">Tugas & Nilai</h3>
-                    <div className="space-y-6">
-                        {activeClass.assignments?.map(a => {
-                            const subCount = Object.values(a.submissions).filter((s: any) => s.isSubmitted).length;
-                            return (
-                                <div key={a.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-[36px] p-8 shadow-sm space-y-6">
-                                    <div className="flex justify-between items-start">
-                                        <div className="space-y-1">
-                                            <h4 className="font-black text-slate-900 dark:text-white leading-tight text-lg">{a.title}</h4>
-                                            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Tenggat: {new Date(a.dueDate).toLocaleDateString('id-ID')}</p>
-                                        </div>
-                                        <button onClick={() => openAdminModal('assignment', a)} className="p-3 text-slate-300 hover:text-indigo-600 transition-colors">⚙️</button>
-                                    </div>
-                                    <div className="space-y-4 max-h-64 overflow-y-auto pr-3 custom-scrollbar">
-                                        {activeClass.students.map((s, idx) => {
-                                            const sub = a.submissions[s.id];
-                                            const isSub = sub?.isSubmitted || false;
-                                            return (
-                                                <div key={s.id} className="flex items-center justify-between">
-                                                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{idx+1}. {s.name}</span>
-                                                    <div className="flex items-center gap-3">
-                                                        <input type="text" defaultValue={sub?.score || ''} onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} disabled={!isSub} className="w-12 bg-slate-50 dark:bg-slate-900 border-none text-center rounded-xl p-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 disabled:opacity-20" placeholder="--" />
-                                                        <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isSub ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-300'}`}>✓</button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-  };
-
+  // --- REPORT VIEWS LOGIC ---
   const ReportsView = () => {
     if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold">Laporan Memuat...</div>;
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
@@ -613,7 +572,7 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
                       <button 
                           onClick={() => {
-                              if (reportTab === 'Daily') setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'prev'));
+                              if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'));
                               else {
                                   const d = new Date(currentDate);
                                   d.setDate(d.getDate() - 7);
@@ -638,7 +597,7 @@ const App: React.FC = () => {
                       />
                       <button 
                           onClick={() => {
-                              if (reportTab === 'Daily') setCurrentDate(d => getNextTeachingDate(d, activeClass.schedule || [], 'next'));
+                              if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'));
                               else {
                                   const d = new Date(currentDate);
                                   d.setDate(d.getDate() + 7);
@@ -702,7 +661,7 @@ const App: React.FC = () => {
                 )}
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
-                {activeClass.students.map((s, idx) => {
+                {activeClass.students.map((s:any, idx:number) => {
                   const t = { H: 0, S: 0, I: 0, A: 0, T: 0 };
                   dates.forEach(d => { const st = attendance[s.id]?.[formatDate(d)] || 'H'; t[st]++; t.T++; });
                   return (
@@ -753,20 +712,20 @@ const App: React.FC = () => {
               <tr>
                 <th className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
                 <th className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[240px]">Nama Peserta Didik</th>
-                {assignments.map((a, i) => (
+                {assignments.map((a:any, i:number) => (
                   <th key={a.id} className="px-4 py-6 text-center border-r dark:border-slate-700 text-[10px] font-black uppercase tracking-widest">Tugas {i+1}</th>
                 ))}
                 <th className="px-8 py-6 text-center text-indigo-600 font-black">RATA-RATA</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-slate-800">
-              {activeClass.students.map((s, idx) => {
+              {activeClass.students.map((s:any, idx:number) => {
                 let total = 0, count = 0;
                 return (
                   <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                     <td className="px-4 py-4 text-slate-400 font-bold border-r dark:border-slate-700">{idx + 1}</td>
                     <td className="px-6 py-4 font-bold border-r dark:border-slate-700">{s.name}</td>
-                    {assignments.map(a => {
+                    {assignments.map((a:any) => {
                       const score = parseFloat(a.submissions[s.id]?.score || '0');
                       if(score > 0) { total += score; count++; }
                       return <td key={a.id} className="px-4 py-4 text-center font-bold border-r dark:border-slate-700 text-slate-500">{a.submissions[s.id]?.score || '-'}</td>;
@@ -783,6 +742,7 @@ const App: React.FC = () => {
   };
 
   if (isLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-900"><div className="text-center space-y-8"><div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div><p className="text-indigo-400 font-black tracking-[0.3em] text-[10px] uppercase animate-pulse">SMAN 11 MAKASSAR • LOADING SYSTEM</p></div></div>;
+  
   if (!isAuthenticated) return (
     <div className="min-h-screen w-full flex items-center justify-center p-6 login-mesh">
       <div className="w-full max-w-md glass-card rounded-[48px] p-12 shadow-2xl space-y-12">
@@ -829,11 +789,97 @@ const App: React.FC = () => {
         </div>
       </nav>
       <main className="flex-1 flex flex-col overflow-hidden print-scroll-reset relative">
-        {view === 'Dashboard' && <DashboardView />}
+        {view === 'Dashboard' && (
+          <DashboardView 
+            activeClass={activeClass}
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            attendance={attendance}
+            dateStr={dateStr}
+            school={school}
+            isSyncing={isSyncing}
+            handleManualSave={handleManualSave}
+            handleAttendanceChange={handleAttendanceChange}
+            handleSubmissionToggle={handleSubmissionToggle}
+            handleScoreChange={handleScoreChange}
+            openAdminModal={openAdminModal}
+          />
+        )}
         {view === 'Reports' && <ReportsView />}
-        {view === 'Admin' && <AdminView />}
+        {view === 'Admin' && (
+          <AdminView 
+            classes={classes}
+            adminSelectedClassId={adminSelectedClassId}
+            setAdminSelectedClassId={setAdminSelectedClassId}
+            adminTab={adminTab}
+            setAdminTab={setAdminTab}
+            handleManualSave={handleManualSave}
+            openAdminModal={openAdminModal}
+            selectedClassIds={selectedClassIds}
+            setSelectedClassIds={setSelectedClassIds}
+            selectedStudentIds={selectedStudentIds}
+            setSelectedStudentIds={setSelectedStudentIds}
+            selectedAssignmentIds={selectedAssignmentIds}
+            setSelectedAssignmentIds={setSelectedAssignmentIds}
+            handleDeleteItem={handleDeleteItem}
+            handleBulkDelete={handleBulkDelete}
+          />
+        )}
         {view === 'TaskReports' && <TaskReportsView />}
       </main>
+
+      <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`} footer={<div className="flex gap-4 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4.5 rounded-[24px] font-black shadow-lg">SIMPAN</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-4.5 rounded-[24px] font-black">BATAL</button></div>}>
+          <form onSubmit={handleAdminSave}>
+            {showModal === 'class' && (
+                <div className="space-y-8">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Kelas</label>
+                    <input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold shadow-inner" placeholder="Contoh: X.9" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 block mb-4">Hari Mengajar</label>
+                    <div className="grid grid-cols-5 gap-3">
+                      {[1, 2, 3, 4, 5].map(day => {
+                        const isSelected = adminFormData.schedule.includes(day);
+                        return (
+                          <button 
+                            key={day} 
+                            type="button"
+                            onClick={() => {
+                              const newSched = isSelected 
+                                ? adminFormData.schedule.filter(d => d !== day) 
+                                : [...adminFormData.schedule, day].sort();
+                              setAdminFormData({...adminFormData, schedule: newSched});
+                            }}
+                            className={`py-4 rounded-2xl text-xs font-black transition-all border-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-200'}`}
+                          >
+                            {DAY_NAMES[day].substring(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+            )}
+            {showModal === 'student' && (
+                <div className="space-y-6">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Lengkap</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
+                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
+                    </div>
+                </div>
+            )}
+            {showModal === 'assignment' && (
+                <div className="space-y-6">
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" placeholder="Contoh: Ulangan Harian 1" /></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Keterangan / Deskripsi</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" rows={3} placeholder="Materi Bab 1..."></textarea></div>
+                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
+                </div>
+            )}
+          </form>
+      </Modal>
+
       <div className="fixed bottom-10 right-10 z-50 space-y-4 print-hide pointer-events-none">
         {notifications.map(n => <div key={n.id} className="bg-slate-900/95 dark:bg-white text-white dark:text-slate-900 px-10 py-5 rounded-[28px] shadow-2xl text-xs font-black animate-fade-in-up flex items-center gap-5 border border-white/10 dark:border-black/10 pointer-events-auto"><div className={`w-3 h-3 rounded-full ${n.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>{n.message}</div>)}
       </div>
