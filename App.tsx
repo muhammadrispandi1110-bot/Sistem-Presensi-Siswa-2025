@@ -65,7 +65,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
             </div>
             <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
                 <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                {isSyncing ? 'Menyimpan...' : 'Simpan Perubahan'}
+                {isSyncing ? 'Sinkronisasi...' : 'Simpan Perubahan'}
             </button>
         </div>
 
@@ -396,7 +396,6 @@ const App: React.FC = () => {
   const fetchFromCloud = useCallback(async (isSilent = false) => {
     if (!supabase) { setClasses(INITIAL_CLASSES); setIsLoading(false); return; }
     
-    // Hanya tampilkan loading global jika data belum ada sama sekali atau tidak dalam mode silent
     if (!isSilent && classes.length === 0) setIsLoading(true);
     
     try {
@@ -432,7 +431,7 @@ const App: React.FC = () => {
         if (!adminSelectedClassId) setAdminSelectedClassId(assembledClasses[0].id);
       }
     } catch (err: any) {
-      showToast('Gagal memuat data dari cloud.', 'error');
+      showToast('Gagal memuat data cloud.', 'error');
       if (classes.length === 0) setClasses(INITIAL_CLASSES);
     } finally {
       setIsLoading(false);
@@ -445,16 +444,21 @@ const App: React.FC = () => {
   const dateStr = useMemo(() => formatDate(currentDate), [currentDate]);
 
   const handleAttendanceChange = async (studentId: string, date: string, status: AttendanceStatus) => {
-    const updated = { ...attendance, [studentId]: { ...attendance[studentId], [date]: status } };
-    setAttendance(updated);
+    // 1. Optimistic Update: Langsung ubah UI
+    setAttendance(prev => ({ 
+      ...prev, 
+      [studentId]: { ...prev[studentId], [date]: status } 
+    }));
+    
+    // 2. Kirim ke DB di latar belakang
     if (!supabase) return;
-    await supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
+    supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
   };
 
   const handleManualSave = async () => {
     setIsSyncing(true);
     await fetchFromCloud(true); // Silent update
-    showToast('Sinkronisasi cloud berhasil!', 'success');
+    showToast('Seluruh data berhasil disinkronkan!', 'success');
     setIsSyncing(false);
   };
 
@@ -487,9 +491,9 @@ const App: React.FC = () => {
         ({ error } = editingItem ? await supabase.from('assignments').update(payload).eq('id', editingItem.id) : await supabase.from('assignments').insert(payload));
       }
       if (error) throw error;
-      showToast('Berhasil disimpan.', 'success');
+      showToast('Data berhasil disimpan.', 'success');
       setShowModal(null);
-      await fetchFromCloud(true); // Silent update
+      await fetchFromCloud(true); 
     } catch (err: any) {
       showToast(`Kesalahan: ${err.message}`, 'error');
     } finally {
@@ -504,7 +508,7 @@ const App: React.FC = () => {
       const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
       const { error } = await supabase.from(table).delete().eq('id', id);
       if (error) throw error;
-      showToast('Dihapus.', 'info');
+      showToast('Terhapus.', 'info');
       await fetchFromCloud(true);
     } catch (err: any) {
       showToast(`Gagal: ${err.message}`, 'error');
@@ -533,20 +537,41 @@ const App: React.FC = () => {
     }
   };
 
+  // Fungsi pembantu untuk update state kelas lokal tanpa fetch ulang
+  const updateLocalSubmission = (assignmentId: string, studentId: string, data: Partial<SubmissionData>) => {
+    setClasses(prevClasses => prevClasses.map(cls => ({
+      ...cls,
+      assignments: cls.assignments?.map(asgn => {
+        if (asgn.id === assignmentId) {
+          return {
+            ...asgn,
+            submissions: {
+              ...asgn.submissions,
+              [studentId]: { ...asgn.submissions[studentId], ...data }
+            }
+          };
+        }
+        return asgn;
+      })
+    })));
+  };
+
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
+      // 1. Optimistic Update
+      updateLocalSubmission(assignmentId, studentId, { isSubmitted });
+      
+      // 2. Kirim DB di latar belakang
       if(!supabase) return;
-      setIsSyncing(true);
-      await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
-      await fetchFromCloud(true);
-      setIsSyncing(false);
+      supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
   };
   
   const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
+      // 1. Optimistic Update
+      updateLocalSubmission(assignmentId, studentId, { score, isSubmitted: true });
+      
+      // 2. Kirim DB di latar belakang
       if(!supabase) return;
-      setIsSyncing(true);
-      await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
-      await fetchFromCloud(true);
-      setIsSyncing(false);
+      supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
   };
 
   // --- REPORT VIEWS LOGIC ---
