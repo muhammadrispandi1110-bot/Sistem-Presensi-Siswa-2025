@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
-import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES } from './types.ts';
+import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES, HolidayRecord } from './types.ts';
 import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
 const STATUS_THEMES: Record<AttendanceStatus, { color: string, bg: string, border: string }> = {
@@ -48,10 +48,12 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
   );
 };
 
-// --- SUB-COMPONENTS EXTRACTED TO PREVENT RE-RENDERING FOCUS LOSS ---
+// --- DASHBOARD VIEW ---
 
-const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, dateStr, school, isSyncing, handleManualSave, handleAttendanceChange, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
+const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, holidays, dateStr, school, isSyncing, handleManualSave, handleAttendanceChange, handleHolidayToggle, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
   if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Menghubungkan ke Kelas...</div>;
+
+  const isHoliday = holidays.includes(dateStr);
 
   return (
     <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-12 bg-slate-50/40 dark:bg-transparent">
@@ -72,10 +74,10 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-5">
             {[
                 { label: 'Siswa', val: activeClass.students.length, icon: '👥', color: 'slate' },
-                { label: 'Hadir', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, icon: '✅', color: 'emerald' },
-                { label: 'Sakit', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'S').length, icon: '🤒', color: 'blue' },
-                { label: 'Izin', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'I').length, icon: '✉️', color: 'amber' },
-                { label: 'Alpa', val: activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'A').length, icon: '❌', color: 'rose' },
+                { label: 'Hadir', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, icon: '✅', color: 'emerald' },
+                { label: 'Sakit', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'S').length, icon: '🤒', color: 'blue' },
+                { label: 'Izin', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'I').length, icon: '✉️', color: 'amber' },
+                { label: 'Alpa', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'A').length, icon: '❌', color: 'rose' },
             ].map(stat => (
                 <div key={stat.label} className="bg-white dark:bg-slate-800 p-6 rounded-[32px] border border-slate-100 dark:border-slate-700 shadow-sm flex items-center gap-5">
                     <div className={`w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-2xl`}>{stat.icon}</div>
@@ -89,25 +91,41 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
             <div className="xl:col-span-2 space-y-8">
-                <div className="flex items-center justify-between px-2">
+                <div className="flex items-center justify-between px-2 mobile-stack gap-4">
                     <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">Presensi Hari Ini</h3>
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
-                        <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
-                        <input 
-                          type="date" 
-                          value={dateStr} 
-                          onChange={(e) => {
-                            const [y, m, d] = e.target.value.split('-').map(Number);
-                            const newDate = new Date(y, m - 1, d);
-                            newDate.setHours(0,0,0,0);
-                            setCurrentDate(newDate);
-                          }} 
-                          className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
-                        />
-                        <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
+                    <div className="flex items-center gap-4">
+                      <button 
+                        onClick={() => handleHolidayToggle(dateStr)} 
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isHoliday ? 'bg-rose-500 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-500 border dark:border-slate-700'}`}
+                      >
+                        {isHoliday ? '🏖️ HARI LIBUR' : '📅 TANDAI LIBUR'}
+                      </button>
+                      <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
+                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
+                          <input 
+                            type="date" 
+                            value={dateStr} 
+                            onChange={(e) => {
+                              const [y, m, d] = e.target.value.split('-').map(Number);
+                              const newDate = new Date(y, m - 1, d);
+                              newDate.setHours(0,0,0,0);
+                              setCurrentDate(newDate);
+                            }} 
+                            className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
+                          />
+                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
+                      </div>
                     </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                {isHoliday ? (
+                  <div className="bg-white dark:bg-slate-800 border-2 border-dashed border-rose-200 dark:border-rose-900/30 p-20 rounded-[48px] text-center space-y-4">
+                    <div className="text-6xl animate-bounce">🏖️</div>
+                    <h4 className="text-3xl font-black text-slate-900 dark:text-white">Hari Ini Adalah Libur</h4>
+                    <p className="text-slate-500 max-w-sm mx-auto">Input presensi dinonaktifkan. Hari ini tidak akan dihitung dalam rekapan akhir semester.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {activeClass.students.map((student: any, idx: number) => {
                         const status = attendance[student.id]?.[dateStr] || 'H';
                         const theme = STATUS_THEMES[status];
@@ -135,7 +153,8 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
                             </div>
                         );
                     })}
-                </div>
+                  </div>
+                )}
             </div>
 
             <div className="space-y-8">
@@ -183,6 +202,8 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
     </div>
   );
 };
+
+// --- ADMIN VIEW ---
 
 const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete }: any) => {
   const adminSelectedClass = useMemo(() => classes.find((c:any) => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
@@ -363,6 +384,7 @@ const App: React.FC = () => {
 
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord>({});
+  const [holidays, setHolidays] = useState<HolidayRecord>([]);
   const [activeClassId, setActiveClassId] = useState<string | null>(null);
   const [view, setView] = useState<ViewType>('Dashboard');
   const [reportTab, setReportTab] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Semester'>('Daily');
@@ -404,6 +426,8 @@ const App: React.FC = () => {
       const { data: assignmentsData } = await supabase.from('assignments').select('*').order('due_date');
       const { data: submissionsData } = await supabase.from('submissions').select('*');
       const { data: attendanceData } = await supabase.from('attendance_records').select('*');
+      // Ambil data hari libur dari Supabase (asumsikan tabel 'holidays' ada)
+      const { data: holidaysData } = await supabase.from('holidays').select('holiday_date');
 
       const assembledClasses = (classesData || []).map(c => {
         const classStudents = (studentsData || []).filter(s => s.class_id === c.id);
@@ -426,6 +450,8 @@ const App: React.FC = () => {
 
       setClasses(assembledClasses);
       setAttendance(reconstructedAttendance);
+      setHolidays((holidaysData || []).map(h => h.holiday_date));
+
       if (assembledClasses.length > 0) {
         if (!activeClassId) setActiveClassId(assembledClasses[0].id);
         if (!adminSelectedClassId) setAdminSelectedClassId(assembledClasses[0].id);
@@ -444,15 +470,41 @@ const App: React.FC = () => {
   const dateStr = useMemo(() => formatDate(currentDate), [currentDate]);
 
   const handleAttendanceChange = async (studentId: string, date: string, status: AttendanceStatus) => {
-    // 1. Optimistic Update: Langsung ubah UI
+    if (holidays.includes(date)) return; // Jangan ubah jika libur
     setAttendance(prev => ({ 
       ...prev, 
       [studentId]: { ...prev[studentId], [date]: status } 
     }));
     
-    // 2. Kirim ke DB di latar belakang
     if (!supabase) return;
     supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
+  };
+
+  const handleHolidayToggle = async (date: string) => {
+    const isNowHoliday = !holidays.includes(date);
+    
+    // Update Lokal
+    if (isNowHoliday) {
+      setHolidays(prev => [...prev, date]);
+    } else {
+      setHolidays(prev => prev.filter(d => d !== date));
+    }
+
+    // Simpan ke DB
+    if (!supabase) return;
+    setIsSyncing(true);
+    try {
+      if (isNowHoliday) {
+        await supabase.from('holidays').insert({ holiday_date: date });
+      } else {
+        await supabase.from('holidays').delete().eq('holiday_date', date);
+      }
+      showToast(isNowHoliday ? 'Hari ditandai libur.' : 'Status libur dihapus.', 'info');
+    } catch (err) {
+      showToast('Gagal menyimpan status libur.', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleManualSave = async () => {
@@ -537,7 +589,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Fungsi pembantu untuk update state kelas lokal tanpa fetch ulang
   const updateLocalSubmission = (assignmentId: string, studentId: string, data: Partial<SubmissionData>) => {
     setClasses(prevClasses => prevClasses.map(cls => ({
       ...cls,
@@ -557,19 +608,13 @@ const App: React.FC = () => {
   };
 
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
-      // 1. Optimistic Update
       updateLocalSubmission(assignmentId, studentId, { isSubmitted });
-      
-      // 2. Kirim DB di latar belakang
       if(!supabase) return;
       supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
   };
   
   const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
-      // 1. Optimistic Update
       updateLocalSubmission(assignmentId, studentId, { score, isSubmitted: true });
-      
-      // 2. Kirim DB di latar belakang
       if(!supabase) return;
       supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
   };
@@ -703,14 +748,27 @@ const App: React.FC = () => {
             <tbody className="divide-y dark:divide-slate-800">
                 {activeClass.students.map((s:any, idx:number) => {
                   const t = { H: 0, S: 0, I: 0, A: 0, T: 0 };
-                  dates.forEach(d => { const st = attendance[s.id]?.[formatDate(d)] || 'H'; t[st]++; t.T++; });
+                  dates.forEach(d => { 
+                    const dStr = formatDate(d);
+                    const isHoliday = holidays.includes(dStr);
+                    if (!isHoliday) {
+                      const st = attendance[s.id]?.[dStr] || 'H';
+                      t[st]++; 
+                      t.T++; 
+                    }
+                  });
                   return (
                     <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
                       <td className="px-4 py-4 text-slate-400 font-bold border-r dark:border-slate-700">{idx + 1}</td>
                       <td className="px-6 py-4 font-bold border-r dark:border-slate-700">{s.name}</td>
                       {reportTab !== 'Semester' && dates.map(d => {
-                        const status = attendance[s.id]?.[formatDate(d)] || 'H';
-                        return (<td key={formatDate(d)} className={`px-2 py-4 text-center text-[10px] font-black border-r dark:border-slate-700 ${STATUS_THEMES[status].color}`}>{status}</td>);
+                        const dStr = formatDate(d);
+                        const isHoliday = holidays.includes(dStr);
+                        if (isHoliday) {
+                          return <td key={dStr} className="px-2 py-4 text-center text-[10px] font-black border-r dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-400">LBR</td>;
+                        }
+                        const status = attendance[s.id]?.[dStr] || 'H';
+                        return (<td key={dStr} className={`px-2 py-4 text-center text-[10px] font-black border-r dark:border-slate-700 ${STATUS_THEMES[status].color}`}>{status}</td>);
                       })}
                       <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20">{t.H}</td>
                       <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20 text-blue-500">{t.S}</td>
@@ -835,11 +893,13 @@ const App: React.FC = () => {
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
             attendance={attendance}
+            holidays={holidays}
             dateStr={dateStr}
             school={school}
             isSyncing={isSyncing}
             handleManualSave={handleManualSave}
             handleAttendanceChange={handleAttendanceChange}
+            handleHolidayToggle={handleHolidayToggle}
             handleSubmissionToggle={handleSubmissionToggle}
             handleScoreChange={handleScoreChange}
             openAdminModal={openAdminModal}

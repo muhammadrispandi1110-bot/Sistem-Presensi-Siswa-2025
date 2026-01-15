@@ -35,6 +35,9 @@ export interface AttendanceRecord {
   };
 }
 
+// Rekaman hari libur (format: "YYYY-MM-DD")
+export type HolidayRecord = string[];
+
 export type ViewType = 'Dashboard' | 'Reports' | 'Admin' | 'TaskReports';
 
 export const STATUS_LABELS: Record<AttendanceStatus, string> = {

@@ -1,3 +1,4 @@
+
 #  Deploy Aplikasi Presensi ke Vercel dengan Database Supabase
 ## Panduan Lengkap untuk SMAN 11 Makassar
 
@@ -80,9 +81,16 @@ CREATE TABLE IF NOT EXISTS attendance_records (
 );
 COMMENT ON TABLE "attendance_records" IS 'Mencatat setiap status kehadiran harian siswa.';
 
+-- 6. Tabel untuk menyimpan hari libur
+CREATE TABLE IF NOT EXISTS holidays (
+    id BIGSERIAL PRIMARY KEY,
+    holiday_date DATE NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+COMMENT ON TABLE "holidays" IS 'Menyimpan daftar tanggal libur sekolah.';
+
 
 -- AKTIFKAN KEAMANAN (ROW LEVEL SECURITY) & BUAT KEBIJAKAN AKSES
--- Pendekatan "DROP" lalu "CREATE" memastikan skrip bisa dijalankan ulang tanpa error.
 ALTER TABLE classes ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public access for classes" ON classes;
 CREATE POLICY "Public access for classes" ON classes FOR ALL USING (true) WITH CHECK (true);
@@ -102,6 +110,10 @@ CREATE POLICY "Public access for submissions" ON submissions FOR ALL USING (true
 ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Public access for attendance" ON attendance_records;
 CREATE POLICY "Public access for attendance" ON attendance_records FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE holidays ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public access for holidays" ON holidays;
+CREATE POLICY "Public access for holidays" ON holidays FOR ALL USING (true) WITH CHECK (true);
 ```
 
 3.  **Simpan Kunci Akses (API Keys)**
