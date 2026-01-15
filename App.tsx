@@ -159,7 +159,15 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, d
                                             <div key={s.id} className="flex items-center justify-between">
                                                 <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{idx+1}. {s.name}</span>
                                                 <div className="flex items-center gap-3">
-                                                    <input type="text" defaultValue={sub?.score || ''} onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} disabled={!isSub} className="w-12 bg-slate-50 dark:bg-slate-900 border-none text-center rounded-xl p-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 disabled:opacity-20" placeholder="--" />
+                                                    <input 
+                                                      type="text" 
+                                                      defaultValue={sub?.score || ''} 
+                                                      onBlur={(e) => handleScoreChange(a.id, s.id, e.target.value)} 
+                                                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                                      disabled={!isSub} 
+                                                      className="w-12 bg-slate-50 dark:bg-slate-900 border-none text-center rounded-xl p-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 disabled:opacity-20" 
+                                                      placeholder="--" 
+                                                    />
                                                     <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isSub ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-300'}`}>✓</button>
                                                 </div>
                                             </div>
@@ -385,9 +393,12 @@ const App: React.FC = () => {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
   }, []);
 
-  const fetchFromCloud = useCallback(async () => {
+  const fetchFromCloud = useCallback(async (isSilent = false) => {
     if (!supabase) { setClasses(INITIAL_CLASSES); setIsLoading(false); return; }
-    setIsLoading(true);
+    
+    // Hanya tampilkan loading global jika data belum ada sama sekali atau tidak dalam mode silent
+    if (!isSilent && classes.length === 0) setIsLoading(true);
+    
     try {
       const { data: classesData } = await supabase.from('classes').select('*').order('name');
       const { data: studentsData } = await supabase.from('students').select('*');
@@ -422,11 +433,11 @@ const App: React.FC = () => {
       }
     } catch (err: any) {
       showToast('Gagal memuat data dari cloud.', 'error');
-      setClasses(INITIAL_CLASSES);
+      if (classes.length === 0) setClasses(INITIAL_CLASSES);
     } finally {
       setIsLoading(false);
     }
-  }, [supabase, activeClassId, adminSelectedClassId, showToast]);
+  }, [supabase, activeClassId, adminSelectedClassId, classes.length, showToast]);
 
   useEffect(() => { if (isAuthenticated) fetchFromCloud(); else setIsLoading(false); }, [isAuthenticated, fetchFromCloud]);
 
@@ -442,8 +453,8 @@ const App: React.FC = () => {
 
   const handleManualSave = async () => {
     setIsSyncing(true);
-    await fetchFromCloud();
-    showToast('Sinkronisasi cloud berhasil diselesaikan!', 'success');
+    await fetchFromCloud(true); // Silent update
+    showToast('Sinkronisasi cloud berhasil!', 'success');
     setIsSyncing(false);
   };
 
@@ -476,9 +487,9 @@ const App: React.FC = () => {
         ({ error } = editingItem ? await supabase.from('assignments').update(payload).eq('id', editingItem.id) : await supabase.from('assignments').insert(payload));
       }
       if (error) throw error;
-      showToast('Perubahan berhasil disimpan ke database.', 'success');
+      showToast('Berhasil disimpan.', 'success');
       setShowModal(null);
-      await fetchFromCloud();
+      await fetchFromCloud(true); // Silent update
     } catch (err: any) {
       showToast(`Kesalahan: ${err.message}`, 'error');
     } finally {
@@ -487,16 +498,16 @@ const App: React.FC = () => {
   };
 
   const handleDeleteItem = async (type: 'class' | 'student' | 'assignment', id: string) => {
-    if (!supabase || !window.confirm(`Hapus ${type} ini secara permanen?`)) return;
+    if (!supabase || !window.confirm(`Hapus ${type} ini?`)) return;
     setIsSyncing(true);
     try {
       const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
       const { error } = await supabase.from(table).delete().eq('id', id);
       if (error) throw error;
-      showToast('Item berhasil dihapus.', 'info');
-      await fetchFromCloud();
+      showToast('Dihapus.', 'info');
+      await fetchFromCloud(true);
     } catch (err: any) {
-      showToast(`Gagal menghapus: ${err.message}`, 'error');
+      showToast(`Gagal: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -504,17 +515,17 @@ const App: React.FC = () => {
 
   const handleBulkDelete = async (type: 'class' | 'student' | 'assignment') => {
     const ids = type === 'class' ? selectedClassIds : type === 'student' ? selectedStudentIds : selectedAssignmentIds;
-    if (!supabase || ids.length === 0 || !window.confirm(`Hapus ${ids.length} item terpilih?`)) return;
+    if (!supabase || ids.length === 0 || !window.confirm(`Hapus ${ids.length} item?`)) return;
     setIsSyncing(true);
     try {
       const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
       const { error } = await supabase.from(table).delete().in('id', ids);
       if (error) throw error;
-      showToast(`${ids.length} item dihapus secara massal.`, 'info');
+      showToast('Berhasil dihapus massal.', 'info');
       if (type === 'class') setSelectedClassIds([]);
       if (type === 'student') setSelectedStudentIds([]);
       if (type === 'assignment') setSelectedAssignmentIds([]);
-      await fetchFromCloud();
+      await fetchFromCloud(true);
     } catch (err: any) {
       showToast(`Gagal: ${err.message}`, 'error');
     } finally {
@@ -524,14 +535,18 @@ const App: React.FC = () => {
 
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
       if(!supabase) return;
+      setIsSyncing(true);
       await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
-      fetchFromCloud();
+      await fetchFromCloud(true);
+      setIsSyncing(false);
   };
   
   const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
       if(!supabase) return;
+      setIsSyncing(true);
       await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
-      fetchFromCloud();
+      await fetchFromCloud(true);
+      setIsSyncing(false);
   };
 
   // --- REPORT VIEWS LOGIC ---
