@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
@@ -20,9 +20,10 @@ interface Notification {
 }
 
 const MENU_ITEMS: { view: ViewType; label: string; icon: string }[] = [
-  { view: 'Admin', label: 'Admin Panel', icon: '⚙️' },
+  { view: 'Dashboard', label: 'Dashboard', icon: '🏠' },
   { view: 'Reports', label: 'Laporan Presensi', icon: '📊' },
   { view: 'TaskReports', label: 'Rekap Tugas', icon: '📝' },
+  { view: 'Admin', label: 'Admin Panel', icon: '⚙️' },
 ];
 
 const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }: { isOpen: any; onClose: any; title: any; children?: any; footer?: any; size?: string; }) => {
@@ -50,7 +51,7 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
 
 // --- DASHBOARD VIEW ---
 
-const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, holidays, dateStr, school, isSyncing, handleManualSave, handleAttendanceChange, handleHolidayToggle, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
+const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, holidays, dateStr, school, isSyncing, savingItems, handleManualSave, handleAttendanceChange, handleHolidayToggle, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
   if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Menghubungkan ke Kelas...</div>;
 
   const isHoliday = holidays.includes(dateStr);
@@ -66,8 +67,8 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                 </div>
             </div>
             <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
-                <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
-                {isSyncing ? 'Sinkronisasi...' : 'Simpan Perubahan'}
+                <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                {isSyncing ? 'Sedang Menyimpan...' : 'Simpan & Sinkron'}
             </button>
         </div>
 
@@ -129,8 +130,15 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                     {activeClass.students.map((student: any, idx: number) => {
                         const status = attendance[student.id]?.[dateStr] || 'H';
                         const theme = STATUS_THEMES[status];
+                        const isSaving = savingItems.includes(`${student.id}-${dateStr}`);
+
                         return (
-                            <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group">
+                            <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group relative">
+                                {isSaving && (
+                                  <div className="absolute top-2 right-2">
+                                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-ping"></div>
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-5 truncate">
                                     <div className={`w-12 h-12 rounded-2xl ${theme.bg} ${theme.color} flex items-center justify-center font-black text-sm border ${theme.border}`}>
                                         {idx + 1}
@@ -174,9 +182,15 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                                     {activeClass.students.map((s: any, idx: number) => {
                                         const sub = a.submissions[s.id];
                                         const isSub = sub?.isSubmitted || false;
+                                        const itemKey = `score-${a.id}-${s.id}`;
+                                        const isSaving = savingItems.includes(itemKey);
+
                                         return (
                                             <div key={s.id} className="flex items-center justify-between">
-                                                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{idx+1}. {s.name}</span>
+                                                <div className="flex items-center gap-2 truncate">
+                                                  {isSaving && <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>}
+                                                  <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate max-w-[140px]">{idx+1}. {s.name}</span>
+                                                </div>
                                                 <div className="flex items-center gap-3">
                                                     <input 
                                                       type="text" 
@@ -205,8 +219,9 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
 
 // --- ADMIN VIEW ---
 
-const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete }: any) => {
+const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, handleSeedDatabase, handleExportData, handleImportData, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete, isSyncing }: any) => {
   const adminSelectedClass = useMemo(() => classes.find((c:any) => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSelectAll = (type: 'class' | 'student' | 'assignment', list: any[]) => {
     const ids = list.map(item => item.id);
@@ -233,7 +248,9 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">Admin Panel</h2>
           <p className="text-slate-500 font-medium">Pengelolaan Basis Data SMAN 11</p>
         </div>
-        <button onClick={handleManualSave} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">Sinkronisasi</button>
+        <button onClick={handleManualSave} disabled={isSyncing} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">
+          {isSyncing ? 'Sinkronisasi...' : 'Refresh Data'}
+        </button>
       </div>
       
       <div className="flex gap-2 p-1.5 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl w-fit">
@@ -256,9 +273,9 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
               </div>
               <div className="overflow-x-auto"><table className="w-full">
                   <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Kelas</th>
-                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal Mengajar</th>
+                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal</th>
                       <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
                   </tr></thead>
                   <tbody className="divide-y dark:divide-slate-700">{classes.map((c:any) => (
@@ -291,7 +308,7 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
               </div>
               <div className="overflow-x-auto"><table className="w-full">
                   <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg" /></th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Lengkap</th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">NISN</th>
                       <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
@@ -326,7 +343,7 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
               </div>
               <div className="overflow-x-auto"><table className="w-full">
                   <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
+                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Judul Tugas</th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Tenggat</th>
                       <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
@@ -346,11 +363,47 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
             </div>
           )}
           {adminTab === 'Database' && (
-              <div className="py-20 text-center space-y-6">
+              <div className="py-12 sm:py-20 text-center space-y-12">
                 <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">🌐</div>
-                <div><h3 className="text-3xl font-black tracking-tight">Cloud Database Connected</h3>
-                <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-2">Sistem tersambung ke Supabase. Seluruh data presensi dan nilai tersimpan secara aman di pusat data cloud Bapak.</p></div>
-                <button onClick={handleManualSave} className="bg-indigo-600 text-white px-12 py-5 rounded-[24px] font-black hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-indigo-100">Sync Data Manual</button>
+                <div className="space-y-4">
+                  <h3 className="text-3xl font-black tracking-tight">Pengaturan Cloud Database</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">Kelola data di Supabase untuk sinkronisasi antar perangkat dan keamanan data.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto px-4">
+                  {/* Cloud Section */}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-8 rounded-[40px] border dark:border-slate-800 space-y-6">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Operasi Cloud</p>
+                    <div className="flex flex-col gap-3">
+                      <button onClick={handleManualSave} disabled={isSyncing} className="w-full bg-white dark:bg-slate-800 text-indigo-600 border border-indigo-100 dark:border-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 shadow-sm">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        Refresh Data
+                      </button>
+                      <button onClick={handleSeedDatabase} disabled={isSyncing} className="w-full bg-indigo-600 text-white px-6 py-4 rounded-2xl font-black hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-indigo-100 dark:shadow-none">
+                        Isi Data Awal
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Backup Section */}
+                  <div className="bg-indigo-600 p-8 rounded-[40px] text-white space-y-6 shadow-2xl shadow-indigo-200 dark:shadow-none">
+                    <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">Backup & Restore</p>
+                    <div className="flex flex-col gap-3">
+                      <button onClick={handleExportData} disabled={isSyncing} className="w-full bg-white text-indigo-600 px-6 py-4 rounded-2xl font-black hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
+                        📥 Backup Seluruh Data
+                      </button>
+                      <button onClick={() => fileInputRef.current?.click()} disabled={isSyncing} className="w-full bg-indigo-500/50 text-white border border-white/20 px-6 py-4 rounded-2xl font-black hover:bg-indigo-500/70 transition-all flex items-center justify-center gap-3">
+                        📤 Restore Dari File
+                      </button>
+                      <input type="file" ref={fileInputRef} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImportData(file); e.target.value = ''; }} accept=".json" className="hidden" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-10 border-t dark:border-slate-800 max-w-lg mx-auto">
+                  <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest mb-4">Zona Berbahaya</p>
+                  <button onClick={() => window.confirm('Hapus seluruh data?') && handleDeleteItem('all', '0')} className="text-rose-500 font-bold hover:underline transition-all hover:text-rose-600">Hapus Seluruh Database Cloud</button>
+                </div>
               </div>
           )}
       </div>
@@ -364,6 +417,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [savingItems, setSavingItems] = useState<string[]>([]);
   const [activeSemester, setActiveSemester] = useState<1 | 2>(1);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined' && localStorage.getItem('theme')) return localStorage.getItem('theme') as 'light' | 'dark';
@@ -379,7 +433,7 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
-  const { database, auth, school, defaults } = APP_CONFIG;
+  const { database, school, defaults } = APP_CONFIG;
   const supabase = useMemo(() => database.url && database.anonKey ? createClient(database.url, database.anonKey) : null, [database.url, database.anonKey]);
 
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -416,7 +470,12 @@ const App: React.FC = () => {
   }, []);
 
   const fetchFromCloud = useCallback(async (isSilent = false) => {
-    if (!supabase) { setClasses(INITIAL_CLASSES); setIsLoading(false); return; }
+    if (!supabase) { 
+      if (!isSilent) showToast("API Key Supabase belum diatur. Gunakan mode offline.", "info");
+      setClasses(INITIAL_CLASSES); 
+      setIsLoading(false); 
+      return; 
+    }
     
     if (!isSilent && classes.length === 0) setIsLoading(true);
     
@@ -426,7 +485,6 @@ const App: React.FC = () => {
       const { data: assignmentsData } = await supabase.from('assignments').select('*').order('due_date');
       const { data: submissionsData } = await supabase.from('submissions').select('*');
       const { data: attendanceData } = await supabase.from('attendance_records').select('*');
-      // Ambil data hari libur dari Supabase (asumsikan tabel 'holidays' ada)
       const { data: holidaysData } = await supabase.from('holidays').select('holiday_date');
 
       const assembledClasses = (classesData || []).map(c => {
@@ -470,48 +528,171 @@ const App: React.FC = () => {
   const dateStr = useMemo(() => formatDate(currentDate), [currentDate]);
 
   const handleAttendanceChange = async (studentId: string, date: string, status: AttendanceStatus) => {
-    if (holidays.includes(date)) return; // Jangan ubah jika libur
+    if (holidays.includes(date)) return;
+    const itemKey = `${studentId}-${date}`;
+    
     setAttendance(prev => ({ 
       ...prev, 
       [studentId]: { ...prev[studentId], [date]: status } 
     }));
     
     if (!supabase) return;
-    supabase.from('attendance_records').upsert({ student_id: studentId, record_date: date, status }, { onConflict: 'student_id, record_date' });
+    setSavingItems(prev => [...prev, itemKey]);
+    try {
+      const { error } = await supabase.from('attendance_records').upsert(
+        { student_id: studentId, record_date: date, status }, 
+        { onConflict: 'student_id, record_date' }
+      );
+      if (error) throw error;
+    } catch (err: any) {
+      showToast(`Database: ${err.message}`, 'error');
+    } finally {
+      setSavingItems(prev => prev.filter(k => k !== itemKey));
+    }
+  };
+
+  const handleManualSave = async () => {
+    if (!supabase) {
+      showToast("Gagal Simpan: API Key Supabase belum dikonfigurasi.", "error");
+      return;
+    }
+    setIsSyncing(true);
+    try {
+      const payload: any[] = [];
+      Object.keys(attendance).forEach(sId => {
+        Object.keys(attendance[sId]).forEach(d => {
+          payload.push({ student_id: sId, record_date: d, status: attendance[sId][d] });
+        });
+      });
+
+      if (payload.length > 0) {
+        await supabase.from('attendance_records').upsert(payload, { onConflict: 'student_id, record_date' });
+      }
+
+      await fetchFromCloud(true);
+      showToast('Berhasil disinkronkan ke Cloud.', 'success');
+    } catch (err: any) {
+      showToast(`Sinkronisasi Gagal: ${err.message}`, 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    if (!supabase) return;
+    setIsSyncing(true);
+    try {
+      // Ambil data dari semua tabel
+      const { data: classes } = await supabase.from('classes').select('*');
+      const { data: students } = await supabase.from('students').select('*');
+      const { data: assignments } = await supabase.from('assignments').select('*');
+      const { data: submissions } = await supabase.from('submissions').select('*');
+      const { data: attendance } = await supabase.from('attendance_records').select('*');
+      const { data: holidays } = await supabase.from('holidays').select('*');
+
+      const fullBackup = {
+        metadata: {
+          exportDate: new Date().toISOString(),
+          school: school.name,
+          version: "2.0"
+        },
+        data: {
+          classes: classes || [],
+          students: students || [],
+          assignments: assignments || [],
+          submissions: submissions || [],
+          attendance_records: attendance || [],
+          holidays: holidays || []
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `backup_sman11_${formatDate(new Date())}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("File backup berhasil diunduh.", "success");
+    } catch (err: any) {
+      showToast(`Gagal backup: ${err.message}`, "error");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleImportData = async (file: File) => {
+    if (!supabase) return;
+    if (!window.confirm("Restore akan menimpa data yang ada. Lanjutkan?")) return;
+    
+    setIsSyncing(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        if (!json.data || !json.data.classes) throw new Error("Format file backup tidak valid.");
+
+        // Urutan restore penting untuk relasi foreign key
+        // 1. Classes
+        if (json.data.classes.length > 0) await supabase.from('classes').upsert(json.data.classes);
+        // 2. Students & Assignments
+        if (json.data.students.length > 0) await supabase.from('students').upsert(json.data.students);
+        if (json.data.assignments.length > 0) await supabase.from('assignments').upsert(json.data.assignments);
+        // 3. Submissions & Attendance & Holidays
+        if (json.data.submissions.length > 0) await supabase.from('submissions').upsert(json.data.submissions);
+        if (json.data.attendance_records.length > 0) await supabase.from('attendance_records').upsert(json.data.attendance_records);
+        if (json.data.holidays.length > 0) await supabase.from('holidays').upsert(json.data.holidays);
+
+        showToast("Restore data berhasil diselesaikan.", "success");
+        await fetchFromCloud(true);
+      } catch (err: any) {
+        showToast(`Restore Gagal: ${err.message}`, "error");
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleSeedDatabase = async () => {
+    if (!supabase) return;
+    if (!window.confirm("Isi database dengan data kelas & siswa awal?")) return;
+    setIsSyncing(true);
+    try {
+      for (const cls of INITIAL_CLASSES) {
+        const { data: cData, error: cErr } = await supabase.from('classes').upsert({ name: cls.name, schedule: cls.schedule || [1,2,3,4,5] }).select();
+        if (cErr) throw cErr;
+        const cId = cData[0].id;
+        const studentPayload = cls.students.map(s => ({ class_id: cId, name: s.name, nis: s.nis, nisn: s.nisn }));
+        const { error: sErr } = await supabase.from('students').upsert(studentPayload);
+        if (sErr) throw sErr;
+      }
+      showToast("Data awal berhasil diisi ke Cloud.", "success");
+      await fetchFromCloud(true);
+    } catch (err: any) {
+      showToast(`Gagal: ${err.message}`, "error");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleHolidayToggle = async (date: string) => {
     const isNowHoliday = !holidays.includes(date);
-    
-    // Update Lokal
-    if (isNowHoliday) {
-      setHolidays(prev => [...prev, date]);
-    } else {
-      setHolidays(prev => prev.filter(d => d !== date));
-    }
+    if (isNowHoliday) setHolidays(prev => [...prev, date]);
+    else setHolidays(prev => prev.filter(d => d !== date));
 
-    // Simpan ke DB
     if (!supabase) return;
     setIsSyncing(true);
     try {
-      if (isNowHoliday) {
-        await supabase.from('holidays').insert({ holiday_date: date });
-      } else {
-        await supabase.from('holidays').delete().eq('holiday_date', date);
-      }
+      if (isNowHoliday) await supabase.from('holidays').insert({ holiday_date: date });
+      else await supabase.from('holidays').delete().eq('holiday_date', date);
       showToast(isNowHoliday ? 'Hari ditandai libur.' : 'Status libur dihapus.', 'info');
     } catch (err) {
       showToast('Gagal menyimpan status libur.', 'error');
     } finally {
       setIsSyncing(false);
     }
-  };
-
-  const handleManualSave = async () => {
-    setIsSyncing(true);
-    await fetchFromCloud(true); // Silent update
-    showToast('Seluruh data berhasil disinkronkan!', 'success');
-    setIsSyncing(false);
   };
 
   const openAdminModal = useCallback((type: 'class' | 'student' | 'assignment', item: any = null) => {
@@ -553,14 +734,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = async (type: 'class' | 'student' | 'assignment', id: string) => {
+  const handleDeleteItem = async (type: 'class' | 'student' | 'assignment' | 'all', id: string) => {
     if (!supabase || !window.confirm(`Hapus ${type} ini?`)) return;
     setIsSyncing(true);
     try {
-      const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
-      const { error } = await supabase.from(table).delete().eq('id', id);
-      if (error) throw error;
-      showToast('Terhapus.', 'info');
+      if (type === 'all') {
+        await supabase.from('attendance_records').delete().neq('status', 'X');
+        await supabase.from('submissions').delete().neq('score', 'X');
+        await supabase.from('holidays').delete().neq('id', '0');
+        showToast("Database dibersihkan.", "info");
+      } else {
+        const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
+        const { error } = await supabase.from(table).delete().eq('id', id);
+        if (error) throw error;
+        showToast('Terhapus.', 'info');
+      }
       await fetchFromCloud(true);
     } catch (err: any) {
       showToast(`Gagal: ${err.message}`, 'error');
@@ -608,30 +796,38 @@ const App: React.FC = () => {
   };
 
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
+      const itemKey = `sub-${assignmentId}-${studentId}`;
       updateLocalSubmission(assignmentId, studentId, { isSubmitted });
       if(!supabase) return;
-      supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
+      setSavingItems(prev => [...prev, itemKey]);
+      try {
+        await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
+      } catch (err) {
+        showToast('Gagal simpan status tugas.', 'error');
+      } finally {
+        setSavingItems(prev => prev.filter(k => k !== itemKey));
+      }
   };
   
   const handleScoreChange = async (assignmentId: string, studentId: string, score: string) => {
+      const itemKey = `score-${assignmentId}-${studentId}`;
       updateLocalSubmission(assignmentId, studentId, { score, isSubmitted: true });
       if(!supabase) return;
-      supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
+      setSavingItems(prev => [...prev, itemKey]);
+      try {
+        await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
+      } catch (err) {
+        showToast('Gagal simpan nilai.', 'error');
+      } finally {
+        setSavingItems(prev => prev.filter(k => k !== itemKey));
+      }
   };
 
-  // --- REPORT VIEWS LOGIC ---
+  // --- REPORT VIEWS ---
   const ReportsView = () => {
     if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold">Laporan Memuat...</div>;
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
-    const semesterMonths = activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12);
     
-    const getPrintRekapLabel = () => {
-        if (reportTab === 'Daily') return `Rekapan Tanggal: ${currentDate.toLocaleDateString('id-ID')}`;
-        if (reportTab === 'Weekly') return `Rekapan Minggu: ${dates[0].toLocaleDateString('id-ID')} - ${dates[dates.length-1].toLocaleDateString('id-ID')}`;
-        if (reportTab === 'Monthly') return `Rekapan Bulan: ${MONTHS_2026.find(m => m.value === activeMonth)?.name} 2026`;
-        return `Rekapan Semester: ${activeSemester} (Tahun Pelajaran ${school.year})`;
-    };
-
     return (
       <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print-scroll-reset">
         <div className="flex items-center justify-between mb-10 print-hide">
@@ -655,45 +851,9 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4 pb-4">
               {(reportTab === 'Daily' || reportTab === 'Weekly') && (
                   <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
-                      <button 
-                          onClick={() => {
-                              if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'));
-                              else {
-                                  const d = new Date(currentDate);
-                                  d.setDate(d.getDate() - 7);
-                                  d.setHours(0,0,0,0);
-                                  setCurrentDate(d);
-                              }
-                          }} 
-                          className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
-                      >
-                          ←
-                      </button>
-                      <input 
-                          type="date" 
-                          value={formatDate(currentDate)} 
-                          onChange={(e) => {
-                            const [y, m, d] = e.target.value.split('-').map(Number);
-                            const newDate = new Date(y, m - 1, d);
-                            newDate.setHours(0,0,0,0);
-                            setCurrentDate(newDate);
-                          }} 
-                          className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
-                      />
-                      <button 
-                          onClick={() => {
-                              if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'));
-                              else {
-                                  const d = new Date(currentDate);
-                                  d.setDate(d.getDate() + 7);
-                                  d.setHours(0,0,0,0);
-                                  setCurrentDate(d);
-                              }
-                          }} 
-                          className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all"
-                      >
-                          →
-                      </button>
+                      <button onClick={() => { if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev')); else { const d = new Date(currentDate); d.setDate(d.getDate() - 7); setCurrentDate(d); }}} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
+                      <input type="date" value={formatDate(currentDate)} onChange={(e) => { const [y, m, d] = e.target.value.split('-').map(Number); setCurrentDate(new Date(y, m - 1, d)); }} className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" />
+                      <button onClick={() => { if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next')); else { const d = new Date(currentDate); d.setDate(d.getDate() + 7); setCurrentDate(d); }}} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
                   </div>
               )}
               {reportTab === 'Monthly' && (
@@ -709,12 +869,6 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
-          <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
-          <h3 className="text-lg font-bold uppercase">LAPORAN PRESENSI KELAS {activeClass.name}</h3>
-          <p className="text-sm font-semibold">{getPrintRekapLabel()}</p>
-        </div>
-
         <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset">
           <table className="min-w-full text-sm">
             <thead className="text-slate-400 border-b dark:border-slate-700">
@@ -723,12 +877,12 @@ const App: React.FC = () => {
                     <tr>
                       <th rowSpan={2} className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
                       <th rowSpan={2} className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[200px]">Nama Siswa</th>
-                      {semesterMonths.map(m => <th key={m.value} colSpan={4} className="px-2 py-4 text-center border-r dark:border-slate-700">{m.name.substring(0,3)}</th>)}
+                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => <th key={m.value} colSpan={4} className="px-2 py-4 text-center border-r dark:border-slate-700">{m.name.substring(0,3)}</th>)}
                       <th colSpan={4} className="px-4 py-4 text-center bg-slate-50 dark:bg-slate-800">Total</th>
                       <th rowSpan={2} className="px-4 py-6 text-center text-indigo-600">%</th>
                     </tr>
                     <tr className="bg-slate-50 dark:bg-slate-800/50">
-                      {semesterMonths.map(m => (<React.Fragment key={m.value}><th className="border text-[8px] p-1">H</th><th className="border text-[8px] p-1">S</th><th className="border text-[8px] p-1">I</th><th className="border text-[8px] p-1">A</th></React.Fragment>))}
+                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => (<React.Fragment key={m.value}><th className="border text-[8px] p-1">H</th><th className="border text-[8px] p-1">S</th><th className="border text-[8px] p-1">I</th><th className="border text-[8px] p-1">A</th></React.Fragment>))}
                       <th className="border text-[8px] p-1">H</th><th className="border text-[8px] p-1">S</th><th className="border text-[8px] p-1">I</th><th className="border text-[8px] p-1">A</th>
                     </tr>
                   </>
@@ -741,40 +895,55 @@ const App: React.FC = () => {
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">S</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">I</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">A</th>
-                    <th className="px-6 py-6 text-center text-indigo-600">%</th>
                   </tr>
                 )}
             </thead>
-            <tbody className="divide-y dark:divide-slate-800">
-                {activeClass.students.map((s:any, idx:number) => {
-                  const t = { H: 0, S: 0, I: 0, A: 0, T: 0 };
-                  dates.forEach(d => { 
-                    const dStr = formatDate(d);
-                    const isHoliday = holidays.includes(dStr);
-                    if (!isHoliday) {
-                      const st = attendance[s.id]?.[dStr] || 'H';
-                      t[st]++; 
-                      t.T++; 
-                    }
-                  });
+            <tbody>
+                {activeClass.students.map((student, idx) => {
+                  const rowAttendance = dates.map(d => attendance[student.id]?.[formatDate(d)] || 'H');
+                  const stats = {
+                    H: rowAttendance.filter(s => s === 'H').length,
+                    S: rowAttendance.filter(s => s === 'S').length,
+                    I: rowAttendance.filter(s => s === 'I').length,
+                    A: rowAttendance.filter(s => s === 'A').length,
+                  };
+                  const total = dates.length;
+                  const percentage = total > 0 ? Math.round((stats.H / total) * 100) : 0;
+
                   return (
-                    <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                      <td className="px-4 py-4 text-slate-400 font-bold border-r dark:border-slate-700">{idx + 1}</td>
-                      <td className="px-6 py-4 font-bold border-r dark:border-slate-700">{s.name}</td>
-                      {reportTab !== 'Semester' && dates.map(d => {
-                        const dStr = formatDate(d);
-                        const isHoliday = holidays.includes(dStr);
-                        if (isHoliday) {
-                          return <td key={dStr} className="px-2 py-4 text-center text-[10px] font-black border-r dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-400">LBR</td>;
-                        }
-                        const status = attendance[s.id]?.[dStr] || 'H';
-                        return (<td key={dStr} className={`px-2 py-4 text-center text-[10px] font-black border-r dark:border-slate-700 ${STATUS_THEMES[status].color}`}>{status}</td>);
-                      })}
-                      <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20">{t.H}</td>
-                      <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20 text-blue-500">{t.S}</td>
-                      <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20 text-amber-500">{t.I}</td>
-                      <td className="px-3 py-4 text-center font-black bg-slate-50/50 dark:bg-slate-800/20 text-rose-500">{t.A}</td>
-                      <td className="px-6 py-4 text-center font-black text-indigo-600">{t.T > 0 ? ((t.H / t.T) * 100).toFixed(0) : 0}%</td>
+                    <tr key={student.id} className="border-b dark:border-slate-800 hover:bg-slate-50/30 dark:hover:bg-slate-800/20">
+                      <td className="px-4 py-4 text-left font-bold">{idx + 1}</td>
+                      <td className="px-6 py-4 font-bold">{student.name}</td>
+                      {reportTab === 'Semester' ? (
+                        <>
+                          {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => {
+                            const monthDates = getMonthDates(m.value, activeClass.schedule);
+                            const mStats = {
+                              H: monthDates.filter(d => (attendance[student.id]?.[formatDate(d)] || 'H') === 'H').length,
+                              S: monthDates.filter(d => attendance[student.id]?.[formatDate(d)] === 'S').length,
+                              I: monthDates.filter(d => attendance[student.id]?.[formatDate(d)] === 'I').length,
+                              A: monthDates.filter(d => attendance[student.id]?.[formatDate(d)] === 'A').length,
+                            };
+                            return (<React.Fragment key={m.value}><td className="border text-[9px] text-center p-1">{mStats.H}</td><td className="border text-[9px] text-center p-1">{mStats.S}</td><td className="border text-[9px] text-center p-1">{mStats.I}</td><td className="border text-[9px] text-center p-1">{mStats.A}</td></React.Fragment>);
+                          })}
+                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.H}</td>
+                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.S}</td>
+                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.I}</td>
+                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.A}</td>
+                          <td className="px-4 py-4 text-center font-black text-indigo-600">{percentage}%</td>
+                        </>
+                      ) : (
+                        <>
+                          {dates.map(d => {
+                            const status = attendance[student.id]?.[formatDate(d)] || 'H';
+                            return <td key={formatDate(d)} className={`border text-center font-black text-[10px] ${STATUS_THEMES[status as AttendanceStatus]?.color}`}>{status}</td>;
+                          })}
+                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold">{stats.H}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-blue-600">{stats.S}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-amber-600">{stats.I}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-rose-600">{stats.A}</td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
@@ -786,52 +955,36 @@ const App: React.FC = () => {
   };
 
   const TaskReportsView = () => {
-    if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold">Laporan Memuat...</div>;
-    const assignments = activeClass.assignments || [];
+    if (!activeClass) return null;
     return (
-      <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print-scroll-reset">
-        <div className="flex items-center justify-between mb-10 print-hide">
-          <div className="space-y-1">
-            <h2 className="text-4xl font-black tracking-tight">Rekap Nilai Tugas</h2>
-            <p className="text-slate-500 font-medium">Kumulatif seluruh tugas {activeClass.name}</p>
-          </div>
-          <button onClick={() => window.print()} className="bg-indigo-600 text-white px-10 py-4.5 rounded-[24px] text-sm font-black shadow-xl">Cetak Rekap Tugas</button>
+      <div className="flex-1 p-6 sm:p-12 overflow-y-auto space-y-10">
+        <div className="flex justify-between items-center">
+          <h2 className="text-4xl font-black tracking-tight">Rekap Nilai Tugas</h2>
+          <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold">Cetak</button>
         </div>
-
-        <div className="hidden print:block text-center mb-8 border-b-2 border-black pb-4">
-          <h2 className="text-xl font-black uppercase tracking-tight">{school.name}</h2>
-          <h3 className="text-lg font-bold uppercase">LAPORAN REKAP NILAI TUGAS KELAS {activeClass.name}</h3>
-          <p className="text-sm font-semibold">Rekapan Kumulatif: Tahun Pelajaran {school.year}</p>
-        </div>
-
-        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset">
-          <table className="min-w-full text-sm">
-            <thead className="text-slate-400 border-b dark:border-slate-700">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 border-b dark:border-slate-700">
               <tr>
-                <th className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
-                <th className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[240px]">Nama Peserta Didik</th>
-                {assignments.map((a:any, i:number) => (
-                  <th key={a.id} className="px-4 py-6 text-center border-r dark:border-slate-700 text-[10px] font-black uppercase tracking-widest">Tugas {i+1}</th>
+                <th className="p-6 text-left w-12">No</th>
+                <th className="p-6 text-left">Siswa</th>
+                {activeClass.assignments?.map(a => (
+                  <th key={a.id} className="p-6 text-center text-[10px] font-black uppercase tracking-widest">{a.title}</th>
                 ))}
-                <th className="px-8 py-6 text-center text-indigo-600 font-black">RATA-RATA</th>
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-slate-800">
-              {activeClass.students.map((s:any, idx:number) => {
-                let total = 0, count = 0;
-                return (
-                  <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors">
-                    <td className="px-4 py-4 text-slate-400 font-bold border-r dark:border-slate-700">{idx + 1}</td>
-                    <td className="px-6 py-4 font-bold border-r dark:border-slate-700">{s.name}</td>
-                    {assignments.map((a:any) => {
-                      const score = parseFloat(a.submissions[s.id]?.score || '0');
-                      if(score > 0) { total += score; count++; }
-                      return <td key={a.id} className="px-4 py-4 text-center font-bold border-r dark:border-slate-700 text-slate-500">{a.submissions[s.id]?.score || '-'}</td>;
-                    })}
-                    <td className="px-8 py-4 text-center font-black text-indigo-600 text-lg">{count > 0 ? (total/count).toFixed(1) : '-'}</td>
-                  </tr>
-                );
-              })}
+            <tbody className="divide-y dark:divide-slate-700">
+              {activeClass.students.map((s, idx) => (
+                <tr key={s.id}>
+                  <td className="p-6 font-bold">{idx + 1}</td>
+                  <td className="p-6 font-bold">{s.name}</td>
+                  {activeClass.assignments?.map(a => (
+                    <td key={a.id} className="p-6 text-center font-black text-indigo-600">
+                      {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
+                    </td>
+                  ))}
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -839,149 +992,178 @@ const App: React.FC = () => {
     );
   };
 
-  if (isLoading) return <div className="h-screen w-screen flex items-center justify-center bg-slate-900"><div className="text-center space-y-8"><div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto"></div><p className="text-indigo-400 font-black tracking-[0.3em] text-[10px] uppercase animate-pulse">SMAN 11 MAKASSAR • LOADING SYSTEM</p></div></div>;
-  
-  if (!isAuthenticated) return (
-    <div className="min-h-screen w-full flex items-center justify-center p-6 login-mesh">
-      <div className="w-full max-w-md glass-card rounded-[48px] p-12 shadow-2xl space-y-12">
-        <div className="text-center space-y-4">
-            <div className="w-20 h-20 bg-indigo-600 rounded-[28px] flex items-center justify-center text-white text-3xl font-black mx-auto shadow-xl shadow-indigo-200">11</div>
-            <div><h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">Login.</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-bold text-sm mt-1">Portal Guru Digital SMAN 11 Makassar</p></div>
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); const d = new FormData(e.currentTarget); if(d.get('u') === auth.username && d.get('p') === auth.password) setIsAuthenticated(true); else showToast('Username atau password salah!', 'error'); }} className="space-y-8">
-          <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Username</label><input name="u" type="text" className="w-full bg-slate-100 dark:bg-slate-900/50 border-none rounded-[20px] p-5 font-bold shadow-inner" placeholder="admin" required /></div>
-          <div className="space-y-3"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Password</label><input name="p" type="password" className="w-full bg-slate-100 dark:bg-slate-900/50 border-none rounded-[20px] p-5 font-bold shadow-inner" placeholder="••••••••" required /></div>
-          <button type="submit" className="w-full active-gradient text-white font-black py-5 rounded-[24px] shadow-2xl transition-all active:scale-95 text-sm tracking-widest">MASUK KE SISTEM</button>
+  // --- RENDER ---
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+        <form onSubmit={(e: any) => {
+          e.preventDefault();
+          const target = e.target;
+          if (target.username.value === APP_CONFIG.auth.username && target.password.value === APP_CONFIG.auth.password) {
+            setIsAuthenticated(true);
+          } else {
+            showToast("Username atau Password salah!", "error");
+          }
+        }} className="max-w-md w-full bg-white dark:bg-slate-900 p-12 rounded-[48px] shadow-2xl border dark:border-slate-800 space-y-10">
+          <div className="text-center space-y-3">
+            <div className="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto flex items-center justify-center text-white text-3xl font-black shadow-xl">S1</div>
+            <h2 className="text-3xl font-black tracking-tight">Login Guru</h2>
+            <p className="text-slate-500 font-bold">SMAN 11 MAKASSAR</p>
+          </div>
+          <div className="space-y-4">
+            <input name="username" type="text" placeholder="Username" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
+            <input name="password" type="password" placeholder="Password" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
+          </div>
+          <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">Masuk</button>
         </form>
-        <p className="text-center text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">© 2026 SMAN 11 Makassar • Digital Presence</p>
+        <div className="fixed bottom-8 right-8 z-[100] space-y-3">
+          {notifications.map(n => <div key={n.id} className={`p-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-slide-up ${n.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'}`}><span className="font-black text-sm">{n.message}</span></div>)}
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (isLoading) return <div className="min-h-screen bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400 font-black tracking-widest animate-pulse">MEMUAT BASIS DATA...</div>;
 
   return (
-    <div className="h-screen w-screen text-slate-800 dark:text-slate-200 flex relative overflow-hidden print-scroll-reset bg-slate-50 dark:bg-[#020617]">
-      <nav className="w-80 bg-white dark:bg-[#020617] p-10 flex flex-col flex-shrink-0 border-r dark:border-slate-800 z-20 print-hide">
-        <div className="mb-16 flex items-center gap-5">
-            <div className="w-14 h-14 bg-indigo-600 rounded-[22px] flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-indigo-100 dark:shadow-none">11</div>
-            <div><h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">SMAN 11</h2><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PRESENSI GURU</p></div>
-        </div>
-        <div className="flex flex-col gap-3">
-            {MENU_ITEMS.map(m => (
-                <button key={m.view} onClick={() => setView(m.view)} className={`flex items-center gap-5 px-6 py-4.5 rounded-[24px] text-sm font-black transition-all ${view === m.view ? 'bg-indigo-600 text-white shadow-2xl shadow-indigo-100 dark:shadow-none translate-x-2' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-slate-200'}`}>
-                    <span className="text-xl">{m.icon}</span>{m.label}
-                </button>
-            ))}
-            <div className="mt-12 pt-8 border-t dark:border-slate-800">
-                <p className="text-[10px] font-black text-slate-400 mb-6 tracking-widest px-4 uppercase">KONTROL KELAS</p>
-                <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto custom-scrollbar">
-                  {classes.map(c => (
-                      <button key={c.id} onClick={() => { setActiveClassId(c.id); setView('Dashboard'); }} className={`w-full px-6 py-4.5 text-left rounded-[20px] text-[11px] font-black transition-all truncate ${activeClassId === c.id && view === 'Dashboard' ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-900'}`}>{c.name}</button>
-                  ))}
-                </div>
+    <div className={`min-h-screen flex ${theme === 'dark' ? 'dark' : ''} bg-white dark:bg-slate-950 font-sans`}>
+      {/* SIDEBAR */}
+      <nav className="w-80 bg-slate-50 dark:bg-slate-900/50 border-r dark:border-slate-800 p-8 flex flex-col gap-10 print-hide shrink-0">
+        <div className="space-y-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">S1</div>
+            <div>
+              <h1 className="font-black text-sm tracking-tight text-slate-900 dark:text-white uppercase leading-tight">Presensi Guru</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{school.name}</p>
             </div>
+          </div>
+          <select 
+            value={activeClassId || ''} 
+            onChange={e => setActiveClassId(e.target.value)}
+            className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-sm outline-indigo-500"
+          >
+            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         </div>
-        <div className="mt-auto pt-8 border-t dark:border-slate-800 space-y-6">
-            <button onClick={toggleTheme} className="w-full flex items-center justify-center gap-3 py-4 bg-slate-50 dark:bg-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-colors">{theme === 'light' ? '🌙 Gelap' : '☀️ Terang'}</button>
-            <p className="text-[9px] text-center font-black text-slate-400 tracking-widest uppercase opacity-50">V.2.0.26 Stable</p>
+
+        <div className="flex-1 space-y-2">
+          {MENU_ITEMS.map(item => (
+            <button 
+              key={item.view} 
+              onClick={() => setView(item.view)} 
+              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${view === item.view ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-600'}`}
+            >
+              <span className="text-lg">{item.icon}</span> {item.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="space-y-4 pt-4 border-t dark:border-slate-800">
+          <button onClick={toggleTheme} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center gap-3 font-bold text-sm shadow-sm">
+            {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+          </button>
+          <button onClick={() => setIsAuthenticated(false)} className="w-full text-rose-500 font-black text-xs uppercase tracking-widest py-2 hover:underline">Logout</button>
         </div>
       </nav>
-      <main className="flex-1 flex flex-col overflow-hidden print-scroll-reset relative">
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {view === 'Dashboard' && (
           <DashboardView 
-            activeClass={activeClass}
-            currentDate={currentDate}
-            setCurrentDate={setCurrentDate}
-            attendance={attendance}
-            holidays={holidays}
-            dateStr={dateStr}
-            school={school}
-            isSyncing={isSyncing}
-            handleManualSave={handleManualSave}
-            handleAttendanceChange={handleAttendanceChange}
-            handleHolidayToggle={handleHolidayToggle}
-            handleSubmissionToggle={handleSubmissionToggle}
-            handleScoreChange={handleScoreChange}
-            openAdminModal={openAdminModal}
+            activeClass={activeClass} 
+            currentDate={currentDate} 
+            setCurrentDate={setCurrentDate} 
+            attendance={attendance} 
+            holidays={holidays} 
+            dateStr={dateStr} 
+            school={school} 
+            isSyncing={isSyncing} 
+            savingItems={savingItems} 
+            handleManualSave={handleManualSave} 
+            handleAttendanceChange={handleAttendanceChange} 
+            handleHolidayToggle={handleHolidayToggle} 
+            handleSubmissionToggle={handleSubmissionToggle} 
+            handleScoreChange={handleScoreChange} 
+            openAdminModal={openAdminModal} 
           />
         )}
         {view === 'Reports' && <ReportsView />}
+        {view === 'TaskReports' && <TaskReportsView />}
         {view === 'Admin' && (
           <AdminView 
-            classes={classes}
-            adminSelectedClassId={adminSelectedClassId}
-            setAdminSelectedClassId={setAdminSelectedClassId}
-            adminTab={adminTab}
-            setAdminTab={setAdminTab}
-            handleManualSave={handleManualSave}
-            openAdminModal={openAdminModal}
-            selectedClassIds={selectedClassIds}
-            setSelectedClassIds={setSelectedClassIds}
-            selectedStudentIds={selectedStudentIds}
-            setSelectedStudentIds={setSelectedStudentIds}
-            selectedAssignmentIds={selectedAssignmentIds}
-            setSelectedAssignmentIds={setSelectedAssignmentIds}
-            handleDeleteItem={handleDeleteItem}
-            handleBulkDelete={handleBulkDelete}
+            classes={classes} 
+            adminSelectedClassId={adminSelectedClassId} 
+            setAdminSelectedClassId={setAdminSelectedClassId} 
+            adminTab={adminTab} 
+            setAdminTab={setAdminTab} 
+            handleManualSave={handleManualSave} 
+            handleSeedDatabase={handleSeedDatabase} 
+            handleExportData={handleExportData}
+            handleImportData={handleImportData}
+            openAdminModal={openAdminModal} 
+            selectedClassIds={selectedClassIds} 
+            setSelectedClassIds={setSelectedClassIds} 
+            selectedStudentIds={selectedStudentIds} 
+            setSelectedStudentIds={setSelectedStudentIds} 
+            selectedAssignmentIds={selectedAssignmentIds} 
+            setSelectedAssignmentIds={setSelectedAssignmentIds} 
+            handleDeleteItem={handleDeleteItem} 
+            handleBulkDelete={handleBulkDelete} 
+            isSyncing={isSyncing} 
           />
         )}
-        {view === 'TaskReports' && <TaskReportsView />}
       </main>
 
-      <Modal isOpen={!!showModal} onClose={() => setShowModal(null)} title={editingItem ? `Edit ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`} footer={<div className="flex gap-4 w-full"><button onClick={handleAdminSave} className="flex-1 active-gradient text-white py-4.5 rounded-[24px] font-black shadow-lg">SIMPAN</button><button onClick={() => setShowModal(null)} className="flex-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 py-4.5 rounded-[24px] font-black">BATAL</button></div>}>
-          <form onSubmit={handleAdminSave}>
-            {showModal === 'class' && (
-                <div className="space-y-8">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Kelas</label>
-                    <input type="text" value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold shadow-inner" placeholder="Contoh: X.9" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 block mb-4">Hari Mengajar</label>
-                    <div className="grid grid-cols-5 gap-3">
-                      {[1, 2, 3, 4, 5].map(day => {
-                        const isSelected = adminFormData.schedule.includes(day);
-                        return (
-                          <button 
-                            key={day} 
-                            type="button"
-                            onClick={() => {
-                              const newSched = isSelected 
-                                ? adminFormData.schedule.filter(d => d !== day) 
-                                : [...adminFormData.schedule, day].sort();
-                              setAdminFormData({...adminFormData, schedule: newSched});
-                            }}
-                            className={`py-4 rounded-2xl text-xs font-black transition-all border-2 ${isSelected ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white dark:bg-slate-900 text-slate-400 border-slate-100 dark:border-slate-700 hover:border-indigo-200'}`}
-                          >
-                            {DAY_NAMES[day].substring(0, 3)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+      {/* MODALS */}
+      <Modal 
+        isOpen={!!showModal} 
+        onClose={() => setShowModal(null)} 
+        title={editingItem ? `Edit ${showModal}` : `Tambah ${showModal}`}
+        footer={<button form="admin-form" type="submit" className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all">Simpan Perubahan</button>}
+      >
+        <form id="admin-form" onSubmit={handleAdminSave} className="space-y-5">
+          {showModal === 'class' && (
+            <>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama Kelas</label>
+                <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Contoh: X.9" required />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Jadwal Hari</label>
+                <div className="flex gap-2">
+                  {[1,2,3,4,5].map(d => (
+                    <button key={d} type="button" onClick={() => {
+                      const newSched = adminFormData.schedule.includes(d) ? adminFormData.schedule.filter(s => s !== d) : [...adminFormData.schedule, d];
+                      setAdminFormData({...adminFormData, schedule: newSched});
+                    }} className={`w-11 h-11 rounded-xl font-black text-xs transition-all ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                      {DAY_NAMES[d].substring(0, 1)}
+                    </button>
+                  ))}
                 </div>
-            )}
-            {showModal === 'student' && (
-                <div className="space-y-6">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Nama Lengkap</label><input type="text" value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NIS</label><input type="text" value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                        <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">NISN</label><input type="text" value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                    </div>
-                </div>
-            )}
-            {showModal === 'assignment' && (
-                <div className="space-y-6">
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Judul Tugas</label><input type="text" value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" placeholder="Contoh: Ulangan Harian 1" /></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Keterangan / Deskripsi</label><textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" rows={3} placeholder="Materi Bab 1..."></textarea></div>
-                    <div><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">Tenggat Waktu</label><input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full mt-2 bg-slate-100 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold" /></div>
-                </div>
-            )}
-          </form>
+              </div>
+            </>
+          )}
+          {showModal === 'student' && (
+            <div className="space-y-4">
+               <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Nama Lengkap" required />
+               <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="NIS" />
+               <input value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="NISN" />
+            </div>
+          )}
+          {showModal === 'assignment' && (
+            <div className="space-y-4">
+               <input value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Judul Tugas" required />
+               <textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Deskripsi Tugas..." rows={3} />
+               <input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
+            </div>
+          )}
+        </form>
       </Modal>
 
-      <div className="fixed bottom-10 right-10 z-50 space-y-4 print-hide pointer-events-none">
-        {notifications.map(n => <div key={n.id} className="bg-slate-900/95 dark:bg-white text-white dark:text-slate-900 px-10 py-5 rounded-[28px] shadow-2xl text-xs font-black animate-fade-in-up flex items-center gap-5 border border-white/10 dark:border-black/10 pointer-events-auto"><div className={`w-3 h-3 rounded-full ${n.type === 'error' ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></div>{n.message}</div>)}
+      {/* TOASTS */}
+      <div className="fixed bottom-8 right-8 z-[100] space-y-3 pointer-events-none">
+        {notifications.map(n => <div key={n.id} className={`p-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-slide-up pointer-events-auto ${n.type === 'error' ? 'bg-rose-600 text-white' : n.type === 'info' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}><span className="font-black text-sm">{n.message}</span></div>)}
       </div>
     </div>
   );
