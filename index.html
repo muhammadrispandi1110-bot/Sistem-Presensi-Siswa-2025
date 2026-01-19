@@ -6,68 +6,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Presensi Digital - SMAN 11 Makassar</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
-            transition: background-color 0.3s ease, color 0.3s ease;
+            background-color: #ffffff;
+            color: #000000;
         }
         
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .dark ::-webkit-scrollbar-thumb { background: #1e293b; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-        .glass-card {
-            background: #ffffff;
-            border: 1px solid #f1f5f9;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
-        }
-        .dark .glass-card {
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .active-gradient {
-            background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+        .active-link {
+            background-color: #000000 !important;
+            color: #ffffff !important;
         }
 
         .view-transition {
-            animation: fadeIn 0.4s ease-out forwards;
+            animation: fadeIn 0.3s ease-out forwards;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        .login-mesh {
-            background-color: #ffffff;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0, transparent 50%), 
-                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.03) 0, transparent 50%);
-        }
-        .dark .login-mesh {
-            background-color: #020617;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.1) 0, transparent 50%), 
-                radial-gradient(at 100% 100%, rgba(147, 51, 234, 0.08) 0, transparent 50%);
-        }
-
-        .status-btn {
-            transition: all 0.2s ease;
-        }
-        .status-btn:active { transform: scale(0.92); }
-
-        /* Print Styles */
+        /* Print Styles Ultra Clear */
         @media print {
             @page { 
                 size: landscape; 
                 margin: 1cm; 
             }
-            html, body { 
+            body { 
                 background: white !important; 
                 color: black !important; 
             }
@@ -79,13 +51,15 @@
             table { 
                 width: 100% !important; 
                 border-collapse: collapse !important; 
+                border: 2px solid #000 !important;
             }
             th, td { 
                 border: 1px solid #000 !important; 
-                padding: 6px !important; 
-                font-size: 9pt !important; 
+                padding: 8px !important; 
+                color: black !important;
+                font-size: 10pt !important; 
             }
-            th { background-color: #f8fafc !important; }
+            th { background-color: #f0f0f0 !important; font-weight: bold !important; }
         }
     </style>
 <script type="importmap">
@@ -99,7 +73,7 @@
 }
 </script>
 </head>
-<body class="login-mesh">
+<body class="bg-white text-black">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>
