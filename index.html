@@ -13,6 +13,13 @@
             -webkit-tap-highlight-color: transparent;
             transition: background-color 0.2s ease, color 0.2s ease;
         }
+
+        /* Transisi Global untuk Pergantian Tema */
+        *, *::before, *::after {
+            transition-property: background-color, border-color, color, fill, stroke;
+            transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+            transition-duration: 200ms;
+        }
         
         /* High Contrast Scrollbar */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
