@@ -7,10 +7,10 @@ import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assig
 import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
 const STATUS_THEMES: Record<AttendanceStatus, { color: string, bg: string, border: string }> = {
-  'H': { color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-200 dark:border-emerald-500/20' },
-  'S': { color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-200 dark:border-blue-500/20' },
-  'I': { color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-200 dark:border-amber-500/20' },
-  'A': { color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-200 dark:border-rose-500/20' }
+  'H': { color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', border: 'border-emerald-100 dark:border-emerald-500/20' },
+  'S': { color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10', border: 'border-blue-100 dark:border-blue-500/20' },
+  'I': { color: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10', border: 'border-amber-100 dark:border-amber-500/20' },
+  'A': { color: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10', border: 'border-rose-100 dark:border-rose-500/20' }
 };
 
 interface Notification {
@@ -30,9 +30,9 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
   if (!isOpen) return null;
   const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
   return (
-    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/80 z-50 flex items-center justify-center p-4 print-hide backdrop-blur-sm">
-      <div className={`w-full ${sizeClass} bg-white dark:bg-slate-800 rounded-[32px] shadow-2xl flex flex-col view-transition border border-white/20 dark:border-slate-700`}>
-        <header className="flex items-center justify-between p-7 border-b border-slate-100 dark:border-slate-700">
+    <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/80 z-50 flex items-center justify-center p-4 print-hide backdrop-blur-sm">
+      <div className={`w-full ${sizeClass} bg-white dark:bg-slate-800 rounded-[32px] shadow-2xl flex flex-col view-transition border border-slate-100 dark:border-slate-700`}>
+        <header className="flex items-center justify-between p-7 border-b border-slate-50 dark:border-slate-700">
           <h3 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{title}</h3>
           <button onClick={onClose} className="p-2.5 rounded-2xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -52,12 +52,12 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
 // --- DASHBOARD VIEW ---
 
 const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, holidays, dateStr, school, isSyncing, savingItems, handleManualSave, handleAttendanceChange, handleHolidayToggle, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
-  if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Menghubungkan ke Kelas...</div>;
+  if (!activeClass) return <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Memuat Data Kelas...</div>;
 
   const isHoliday = holidays.includes(dateStr);
 
   return (
-    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-12 bg-slate-50/40 dark:bg-transparent">
+    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-12 bg-white dark:bg-transparent">
         <div className="flex items-center justify-between mobile-stack gap-8">
             <div className="space-y-2">
                 <h2 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter">{activeClass.name}</h2>
@@ -66,9 +66,9 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                     <span className="text-slate-500 text-sm font-bold flex items-center gap-2">🗓️ {DAY_NAMES[currentDate.getDay()]}, {currentDate.toLocaleDateString('id-ID')}</span>
                 </div>
             </div>
-            <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black shadow-2xl transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
+            <button onClick={handleManualSave} disabled={isSyncing} className="active-gradient text-white px-10 py-5 rounded-[24px] text-sm font-black transition-all active:scale-95 flex items-center gap-3 min-w-[200px] justify-center">
                 <svg className={`w-5 h-5 ${isSyncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                {isSyncing ? 'Sedang Menyimpan...' : 'Simpan & Sinkron'}
+                {isSyncing ? 'Sinkronisasi...' : 'Simpan Perubahan'}
             </button>
         </div>
 
@@ -93,16 +93,16 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-12">
             <div className="xl:col-span-2 space-y-8">
                 <div className="flex items-center justify-between px-2 mobile-stack gap-4">
-                    <h3 className="text-2xl font-black tracking-tight flex items-center gap-3">Presensi Hari Ini</h3>
+                    <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Presensi Hari Ini</h3>
                     <div className="flex items-center gap-4">
                       <button 
                         onClick={() => handleHolidayToggle(dateStr)} 
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isHoliday ? 'bg-rose-500 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-500 border dark:border-slate-700'}`}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isHoliday ? 'bg-rose-600 text-white shadow-lg' : 'bg-white dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700'}`}
                       >
                         {isHoliday ? '🏖️ HARI LIBUR' : '📅 TANDAI LIBUR'}
                       </button>
-                      <div className="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
-                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
+                      <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev'))} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
                           <input 
                             type="date" 
                             value={dateStr} 
@@ -114,16 +114,16 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                             }} 
                             className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" 
                           />
-                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
+                          <button onClick={() => setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next'))} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
                       </div>
                     </div>
                 </div>
 
                 {isHoliday ? (
-                  <div className="bg-white dark:bg-slate-800 border-2 border-dashed border-rose-200 dark:border-rose-900/30 p-20 rounded-[48px] text-center space-y-4">
+                  <div className="bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-rose-200 dark:border-rose-900/30 p-20 rounded-[48px] text-center space-y-4">
                     <div className="text-6xl animate-bounce">🏖️</div>
                     <h4 className="text-3xl font-black text-slate-900 dark:text-white">Hari Ini Adalah Libur</h4>
-                    <p className="text-slate-500 max-w-sm mx-auto">Input presensi dinonaktifkan. Hari ini tidak akan dihitung dalam rekapan akhir semester.</p>
+                    <p className="text-slate-500 max-w-sm mx-auto">Input presensi dinonaktifkan. Laporan akhir akan otomatis menyesuaikan.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -133,10 +133,10 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                         const isSaving = savingItems.includes(`${student.id}-${dateStr}`);
 
                         return (
-                            <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all group relative">
+                            <div key={student.id} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-6 rounded-[32px] flex items-center justify-between shadow-[0_4px_20px_-10px_rgba(0,0,0,0.1)] hover:shadow-[0_8px_30px_-10px_rgba(0,0,0,0.15)] transition-all group relative">
                                 {isSaving && (
-                                  <div className="absolute top-2 right-2">
-                                    <div className="w-2.5 h-2.5 bg-indigo-500 rounded-full animate-ping"></div>
+                                  <div className="absolute top-3 right-3">
+                                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-ping"></div>
                                   </div>
                                 )}
                                 <div className="flex items-center gap-5 truncate">
@@ -144,7 +144,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                                         {idx + 1}
                                     </div>
                                     <div className="truncate">
-                                        <p className="font-bold text-slate-800 dark:text-slate-100 truncate">{student.name}</p>
+                                        <p className="font-bold text-slate-900 dark:text-slate-100 truncate">{student.name}</p>
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">NISN: {student.nisn || '-'}</p>
                                     </div>
                                 </div>
@@ -152,7 +152,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                                     {(['H', 'S', 'I', 'A'] as AttendanceStatus[]).map(s => {
                                         const isActive = status === s;
                                         return (
-                                            <button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} className={`status-btn w-9 h-9 rounded-xl font-black text-xs transition-all ${isActive ? `${STATUS_THEMES[s].bg} ${STATUS_THEMES[s].color} shadow-sm border ${STATUS_THEMES[s].border}` : 'text-slate-300 hover:bg-white dark:hover:bg-slate-700'}`}>
+                                            <button key={s} onClick={() => !isFutureDate(currentDate) && handleAttendanceChange(student.id, dateStr, s)} className={`status-btn w-9 h-9 rounded-xl font-black text-xs transition-all ${isActive ? `${STATUS_THEMES[s].bg} ${STATUS_THEMES[s].color} shadow-sm border ${STATUS_THEMES[s].border}` : 'text-slate-300 hover:text-slate-500 hover:bg-white dark:hover:bg-slate-700'}`}>
                                                 {s}
                                             </button>
                                         );
@@ -166,7 +166,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
             </div>
 
             <div className="space-y-8">
-                <h3 className="text-2xl font-black tracking-tight px-2">Tugas & Nilai</h3>
+                <h3 className="text-2xl font-black tracking-tight px-2 text-slate-900 dark:text-white">Tugas & Nilai</h3>
                 <div className="space-y-6">
                     {activeClass.assignments?.map((a: any) => {
                         return (
@@ -201,7 +201,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
                                                       className="w-12 bg-slate-50 dark:bg-slate-900 border-none text-center rounded-xl p-2 text-[10px] font-black text-indigo-600 dark:text-indigo-400 disabled:opacity-20" 
                                                       placeholder="--" 
                                                     />
-                                                    <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isSub ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-300'}`}>✓</button>
+                                                    <button onClick={() => handleSubmissionToggle(a.id, s.id, !isSub)} className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${isSub ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-300'}`}>✓</button>
                                                 </div>
                                             </div>
                                         );
@@ -242,46 +242,46 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
   };
 
   return (
-    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-10">
+    <div className="flex-1 p-6 sm:p-12 overflow-y-auto view-transition space-y-10 bg-white dark:bg-transparent">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-black text-slate-900 dark:text-white tracking-tighter">Admin Panel</h2>
-          <p className="text-slate-500 font-medium">Pengelolaan Basis Data SMAN 11</p>
+          <p className="text-slate-500 font-medium text-sm">Pengelolaan Basis Data Cloud</p>
         </div>
-        <button onClick={handleManualSave} disabled={isSyncing} className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">
+        <button onClick={handleManualSave} disabled={isSyncing} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-6 py-3.5 rounded-2xl text-sm font-bold shadow-sm hover:shadow-md transition-all">
           {isSyncing ? 'Sinkronisasi...' : 'Refresh Data'}
         </button>
       </div>
       
-      <div className="flex gap-2 p-1.5 bg-slate-200/50 dark:bg-slate-800/50 rounded-2xl w-fit">
+      <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl w-fit">
           {(['Kelas', 'Siswa', 'Tugas', 'Database'] as const).map(tab => (
-              <button key={tab} onClick={() => setAdminTab(tab)} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-none' : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-300'}`}>
+              <button key={tab} onClick={() => setAdminTab(tab)} className={`px-8 py-3 rounded-xl text-sm font-black transition-all ${adminTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-900'}`}>
                   {tab}
               </button>
           ))}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 shadow-xl shadow-slate-200/40 dark:shadow-none overflow-hidden p-8 sm:p-10">
+      <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 shadow-[0_8px_40px_-15px_rgba(0,0,0,0.08)] overflow-hidden p-8 sm:p-10">
           {adminTab === 'Kelas' && (
             <div className="space-y-8">
               <div className="flex justify-between items-center">
-                <h3 className="text-2xl font-black tracking-tight">Daftar Kelas</h3>
+                <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Daftar Kelas</h3>
                 <div className="flex gap-3">
                   {selectedClassIds.length > 0 && <button onClick={() => handleBulkDelete('class')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedClassIds.length})</button>}
-                  <button onClick={() => openAdminModal('class')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black shadow-lg shadow-indigo-100">+ Kelas Baru</button>
+                  <button onClick={() => openAdminModal('class')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black shadow-lg">+ Kelas Baru</button>
                 </div>
               </div>
               <div className="overflow-x-auto"><table className="w-full">
-                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg" /></th>
+                  <thead className="text-slate-400 border-b border-slate-100 dark:border-slate-700"><tr>
+                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={selectedClassIds.length === classes.length && classes.length > 0} onChange={() => handleSelectAll('class', classes)} className="w-5 h-5 rounded-lg border-slate-300" /></th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Kelas</th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Jadwal</th>
                       <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
                   </tr></thead>
-                  <tbody className="divide-y dark:divide-slate-700">{classes.map((c:any) => (
-                      <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                        <td className="py-5 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-5 h-5 rounded-lg" /></td>
-                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{c.name}</td>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700">{classes.map((c:any) => (
+                      <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="py-5 text-center"><input type="checkbox" checked={selectedClassIds.includes(c.id)} onChange={() => toggleSelectOne('class', c.id)} className="w-5 h-5 rounded-lg border-slate-200" /></td>
+                        <td className="py-5 font-bold text-slate-900 dark:text-slate-200">{c.name}</td>
                         <td className="py-5 text-slate-500 font-bold text-xs uppercase tracking-widest">{getDayLabels(c.schedule)}</td>
                         <td className="py-5 text-right space-x-6">
                           <button onClick={() => openAdminModal('class', c)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase hover:underline">Edit</button>
@@ -296,27 +296,27 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
             <div className="space-y-8">
               <div className="flex justify-between items-center mobile-stack gap-6">
                 <div className="flex items-center gap-4">
-                  <h3 className="text-2xl font-black tracking-tight">Data Siswa</h3>
-                  <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
+                  <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Data Siswa</h3>
+                  <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600 outline-none ring-1 ring-slate-200 dark:ring-slate-700">
                     {classes.map((c:any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div className="flex gap-3">
                   {selectedStudentIds.length > 0 && <button onClick={() => handleBulkDelete('student')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedStudentIds.length})</button>}
-                  <button onClick={() => openAdminModal('student')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Siswa</button>
+                  <button onClick={() => openAdminModal('student')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black shadow-lg">+ Siswa</button>
                 </div>
               </div>
               <div className="overflow-x-auto"><table className="w-full">
-                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg" /></th>
+                  <thead className="text-slate-400 border-b border-slate-100 dark:border-slate-700"><tr>
+                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={adminSelectedClass?.students && selectedStudentIds.length === adminSelectedClass.students.length} onChange={() => handleSelectAll('student', adminSelectedClass?.students || [])} className="w-5 h-5 rounded-lg border-slate-300" /></th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Nama Lengkap</th>
                       <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">NISN</th>
                       <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
                   </tr></thead>
-                  <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.students.map((s:any) => (
-                      <tr key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                        <td className="py-5 text-center"><input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleSelectOne('student', s.id)} className="w-5 h-5 rounded-lg" /></td>
-                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{s.name}</td>
+                  <tbody className="divide-y divide-slate-50 dark:divide-slate-700">{adminSelectedClass?.students.map((s:any) => (
+                      <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/30 transition-colors">
+                        <td className="py-5 text-center"><input type="checkbox" checked={selectedStudentIds.includes(s.id)} onChange={() => toggleSelectOne('student', s.id)} className="w-5 h-5 rounded-lg border-slate-200" /></td>
+                        <td className="py-5 font-bold text-slate-900 dark:text-slate-200">{s.name}</td>
                         <td className="py-5 text-slate-500 font-medium">{s.nisn}</td>
                         <td className="py-5 text-right space-x-6">
                           <button onClick={() => openAdminModal('student', s)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
@@ -327,82 +327,46 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
               </table></div>
             </div>
           )}
-          {adminTab === 'Tugas' && (
-            <div className="space-y-8">
-              <div className="flex justify-between items-center mobile-stack gap-6">
-                <div className="flex items-center gap-4">
-                  <h3 className="text-2xl font-black tracking-tight">Pengelolaan Tugas</h3>
-                  <select value={adminSelectedClassId || ''} onChange={e => setAdminSelectedClassId(e.target.value)} className="bg-slate-100 dark:bg-slate-900 border-none rounded-xl px-4 py-2 text-xs font-black text-indigo-600">
-                    {classes.map((c:any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="flex gap-3">
-                  {selectedAssignmentIds.length > 0 && <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl text-xs font-black">Hapus ({selectedAssignmentIds.length})</button>}
-                  <button onClick={() => openAdminModal('assignment')} className="bg-indigo-600 text-white px-7 py-3.5 rounded-2xl text-xs font-black">+ Tugas Baru</button>
-                </div>
-              </div>
-              <div className="overflow-x-auto"><table className="w-full">
-                  <thead className="text-slate-400 border-b dark:border-slate-700"><tr>
-                      <th className="pb-4 text-center w-12"><input type="checkbox" checked={adminSelectedClass?.assignments && selectedAssignmentIds.length === adminSelectedClass.assignments.length} onChange={() => handleSelectAll('assignment', adminSelectedClass?.assignments || [])} className="w-5 h-5 rounded-lg" /></th>
-                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Judul Tugas</th>
-                      <th className="pb-4 text-left font-black uppercase text-[10px] tracking-widest">Tenggat</th>
-                      <th className="pb-4 text-right font-black uppercase text-[10px] tracking-widest">Aksi</th>
-                  </tr></thead>
-                  <tbody className="divide-y dark:divide-slate-700">{adminSelectedClass?.assignments?.map((a:any) => (
-                      <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors">
-                        <td className="py-5 text-center"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => toggleSelectOne('assignment', a.id)} className="w-5 h-5 rounded-lg" /></td>
-                        <td className="py-5 font-bold text-slate-800 dark:text-slate-200">{a.title}</td>
-                        <td className="py-5 text-slate-500 font-medium">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
-                        <td className="py-5 text-right space-x-6">
-                          <button onClick={() => openAdminModal('assignment', a)} className="text-indigo-600 dark:text-indigo-400 font-black text-xs uppercase">Edit</button>
-                          <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 dark:text-rose-400 font-black text-xs uppercase">Hapus</button>
-                        </td>
-                      </tr>
-                  ))}</tbody>
-              </table></div>
-            </div>
-          )}
           {adminTab === 'Database' && (
               <div className="py-12 sm:py-20 text-center space-y-12">
                 <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto text-4xl shadow-inner">🌐</div>
                 <div className="space-y-4">
-                  <h3 className="text-3xl font-black tracking-tight">Pengaturan Cloud Database</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">Kelola data di Supabase untuk sinkronisasi antar perangkat dan keamanan data.</p>
+                  <h3 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Pengaturan Cloud Database</h3>
+                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto text-sm font-medium">Gunakan menu ini untuk mencadangkan data penting Bapak secara berkala.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto px-4">
-                  {/* Cloud Section */}
-                  <div className="bg-slate-50 dark:bg-slate-900/40 p-8 rounded-[40px] border dark:border-slate-800 space-y-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Operasi Cloud</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto px-4">
+                  {/* Operations */}
+                  <div className="bg-slate-50 dark:bg-slate-900/40 p-8 rounded-[40px] border border-slate-100 dark:border-slate-800 space-y-6">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sinkronisasi</p>
                     <div className="flex flex-col gap-3">
-                      <button onClick={handleManualSave} disabled={isSyncing} className="w-full bg-white dark:bg-slate-800 text-indigo-600 border border-indigo-100 dark:border-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 shadow-sm">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      <button onClick={handleManualSave} disabled={isSyncing} className="w-full bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-200 border border-slate-200 dark:border-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
                         Refresh Data
                       </button>
-                      <button onClick={handleSeedDatabase} disabled={isSyncing} className="w-full bg-indigo-600 text-white px-6 py-4 rounded-2xl font-black hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-indigo-100 dark:shadow-none">
+                      <button onClick={handleSeedDatabase} disabled={isSyncing} className="w-full bg-indigo-600 text-white px-6 py-4 rounded-2xl font-black hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-indigo-100">
                         Isi Data Awal
                       </button>
                     </div>
                   </div>
 
                   {/* Backup Section */}
-                  <div className="bg-indigo-600 p-8 rounded-[40px] text-white space-y-6 shadow-2xl shadow-indigo-200 dark:shadow-none">
-                    <p className="text-[10px] font-black opacity-60 uppercase tracking-widest">Backup & Restore</p>
+                  <div className="bg-white dark:bg-slate-900/40 p-8 rounded-[40px] border-2 border-indigo-100 dark:border-indigo-900/20 space-y-6">
+                    <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Backup & Restore</p>
                     <div className="flex flex-col gap-3">
-                      <button onClick={handleExportData} disabled={isSyncing} className="w-full bg-white text-indigo-600 px-6 py-4 rounded-2xl font-black hover:bg-slate-50 transition-all flex items-center justify-center gap-3">
-                        📥 Backup Seluruh Data
+                      <button onClick={handleExportData} disabled={isSyncing} className="w-full bg-indigo-50 text-indigo-700 px-6 py-4 rounded-2xl font-black hover:bg-indigo-100 transition-all">
+                        📥 Export ke JSON
                       </button>
-                      <button onClick={() => fileInputRef.current?.click()} disabled={isSyncing} className="w-full bg-indigo-500/50 text-white border border-white/20 px-6 py-4 rounded-2xl font-black hover:bg-indigo-500/70 transition-all flex items-center justify-center gap-3">
-                        📤 Restore Dari File
+                      <button onClick={() => fileInputRef.current?.click()} disabled={isSyncing} className="w-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-6 py-4 rounded-2xl font-black hover:bg-slate-200 transition-all">
+                        📤 Import dari JSON
                       </button>
                       <input type="file" ref={fileInputRef} onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImportData(file); e.target.value = ''; }} accept=".json" className="hidden" />
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-10 border-t dark:border-slate-800 max-w-lg mx-auto">
-                  <p className="text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest mb-4">Zona Berbahaya</p>
-                  <button onClick={() => window.confirm('Hapus seluruh data?') && handleDeleteItem('all', '0')} className="text-rose-500 font-bold hover:underline transition-all hover:text-rose-600">Hapus Seluruh Database Cloud</button>
+                <div className="pt-10 border-t border-slate-100 dark:border-slate-800 max-w-lg mx-auto">
+                  <p className="text-rose-600 text-[10px] font-black uppercase tracking-widest mb-4">Zona Berbahaya</p>
+                  <button onClick={() => window.confirm('Hapus seluruh data?') && handleDeleteItem('all', '0')} className="text-rose-500 font-bold hover:underline transition-all">Kosongkan Database Cloud</button>
                 </div>
               </div>
           )}
@@ -420,7 +384,7 @@ const App: React.FC = () => {
   const [savingItems, setSavingItems] = useState<string[]>([]);
   const [activeSemester, setActiveSemester] = useState<1 | 2>(1);
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('theme')) return localStorage.getItem('theme') as 'light' | 'dark';
+    // Selalu gunakan light mode sebagai default saat pertama kali dijalankan
     return 'light';
   });
 
@@ -471,7 +435,7 @@ const App: React.FC = () => {
 
   const fetchFromCloud = useCallback(async (isSilent = false) => {
     if (!supabase) { 
-      if (!isSilent) showToast("API Key Supabase belum diatur. Gunakan mode offline.", "info");
+      if (!isSilent) showToast("Aplikasi berjalan dalam mode offline.", "info");
       setClasses(INITIAL_CLASSES); 
       setIsLoading(false); 
       return; 
@@ -545,7 +509,7 @@ const App: React.FC = () => {
       );
       if (error) throw error;
     } catch (err: any) {
-      showToast(`Database: ${err.message}`, 'error');
+      showToast(`Kesalahan Database: ${err.message}`, 'error');
     } finally {
       setSavingItems(prev => prev.filter(k => k !== itemKey));
     }
@@ -553,7 +517,7 @@ const App: React.FC = () => {
 
   const handleManualSave = async () => {
     if (!supabase) {
-      showToast("Gagal Simpan: API Key Supabase belum dikonfigurasi.", "error");
+      showToast("Data hanya tersimpan sementara (Mode Offline).", "info");
       return;
     }
     setIsSyncing(true);
@@ -570,7 +534,7 @@ const App: React.FC = () => {
       }
 
       await fetchFromCloud(true);
-      showToast('Berhasil disinkronkan ke Cloud.', 'success');
+      showToast('Seluruh data berhasil diamankan di Cloud.', 'success');
     } catch (err: any) {
       showToast(`Sinkronisasi Gagal: ${err.message}`, 'error');
     } finally {
@@ -582,7 +546,6 @@ const App: React.FC = () => {
     if (!supabase) return;
     setIsSyncing(true);
     try {
-      // Ambil data dari semua tabel
       const { data: classes } = await supabase.from('classes').select('*');
       const { data: students } = await supabase.from('students').select('*');
       const { data: assignments } = await supabase.from('assignments').select('*');
@@ -591,32 +554,21 @@ const App: React.FC = () => {
       const { data: holidays } = await supabase.from('holidays').select('*');
 
       const fullBackup = {
-        metadata: {
-          exportDate: new Date().toISOString(),
-          school: school.name,
-          version: "2.0"
-        },
-        data: {
-          classes: classes || [],
-          students: students || [],
-          assignments: assignments || [],
-          submissions: submissions || [],
-          attendance_records: attendance || [],
-          holidays: holidays || []
-        }
+        metadata: { exportDate: new Date().toISOString(), school: school.name, version: "2.0" },
+        data: { classes: classes || [], students: students || [], assignments: assignments || [], submissions: submissions || [], attendance_records: attendance || [], holidays: holidays || [] }
       };
 
       const blob = new Blob([JSON.stringify(fullBackup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `backup_sman11_${formatDate(new Date())}.json`;
+      link.download = `backup_presensi_${formatDate(new Date())}.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      showToast("File backup berhasil diunduh.", "success");
+      showToast("Cadangan data berhasil diunduh.", "success");
     } catch (err: any) {
-      showToast(`Gagal backup: ${err.message}`, "error");
+      showToast(`Ekspor Gagal: ${err.message}`, "error");
     } finally {
       setIsSyncing(false);
     }
@@ -624,30 +576,26 @@ const App: React.FC = () => {
 
   const handleImportData = async (file: File) => {
     if (!supabase) return;
-    if (!window.confirm("Restore akan menimpa data yang ada. Lanjutkan?")) return;
+    if (!window.confirm("Aksi ini akan memperbarui data cloud dengan isi file backup. Lanjutkan?")) return;
     
     setIsSyncing(true);
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
         const json = JSON.parse(e.target?.result as string);
-        if (!json.data || !json.data.classes) throw new Error("Format file backup tidak valid.");
+        if (!json.data || !json.data.classes) throw new Error("File bukan cadangan yang sah.");
 
-        // Urutan restore penting untuk relasi foreign key
-        // 1. Classes
         if (json.data.classes.length > 0) await supabase.from('classes').upsert(json.data.classes);
-        // 2. Students & Assignments
         if (json.data.students.length > 0) await supabase.from('students').upsert(json.data.students);
         if (json.data.assignments.length > 0) await supabase.from('assignments').upsert(json.data.assignments);
-        // 3. Submissions & Attendance & Holidays
         if (json.data.submissions.length > 0) await supabase.from('submissions').upsert(json.data.submissions);
         if (json.data.attendance_records.length > 0) await supabase.from('attendance_records').upsert(json.data.attendance_records);
         if (json.data.holidays.length > 0) await supabase.from('holidays').upsert(json.data.holidays);
 
-        showToast("Restore data berhasil diselesaikan.", "success");
+        showToast("Restorasi data berhasil diselesaikan.", "success");
         await fetchFromCloud(true);
       } catch (err: any) {
-        showToast(`Restore Gagal: ${err.message}`, "error");
+        showToast(`Impor Gagal: ${err.message}`, "error");
       } finally {
         setIsSyncing(false);
       }
@@ -657,7 +605,7 @@ const App: React.FC = () => {
 
   const handleSeedDatabase = async () => {
     if (!supabase) return;
-    if (!window.confirm("Isi database dengan data kelas & siswa awal?")) return;
+    if (!window.confirm("Isi database cloud dengan daftar siswa & kelas bawaan sistem?")) return;
     setIsSyncing(true);
     try {
       for (const cls of INITIAL_CLASSES) {
@@ -668,7 +616,7 @@ const App: React.FC = () => {
         const { error: sErr } = await supabase.from('students').upsert(studentPayload);
         if (sErr) throw sErr;
       }
-      showToast("Data awal berhasil diisi ke Cloud.", "success");
+      showToast("Daftar awal berhasil disinkronkan ke Cloud.", "success");
       await fetchFromCloud(true);
     } catch (err: any) {
       showToast(`Gagal: ${err.message}`, "error");
@@ -687,7 +635,7 @@ const App: React.FC = () => {
     try {
       if (isNowHoliday) await supabase.from('holidays').insert({ holiday_date: date });
       else await supabase.from('holidays').delete().eq('holiday_date', date);
-      showToast(isNowHoliday ? 'Hari ditandai libur.' : 'Status libur dihapus.', 'info');
+      showToast(isNowHoliday ? 'Berhasil menandai hari libur.' : 'Status libur dibatalkan.', 'info');
     } catch (err) {
       showToast('Gagal menyimpan status libur.', 'error');
     } finally {
@@ -724,7 +672,7 @@ const App: React.FC = () => {
         ({ error } = editingItem ? await supabase.from('assignments').update(payload).eq('id', editingItem.id) : await supabase.from('assignments').insert(payload));
       }
       if (error) throw error;
-      showToast('Data berhasil disimpan.', 'success');
+      showToast('Data berhasil disimpan ke cloud.', 'success');
       setShowModal(null);
       await fetchFromCloud(true); 
     } catch (err: any) {
@@ -735,19 +683,19 @@ const App: React.FC = () => {
   };
 
   const handleDeleteItem = async (type: 'class' | 'student' | 'assignment' | 'all', id: string) => {
-    if (!supabase || !window.confirm(`Hapus ${type} ini?`)) return;
+    if (!supabase || !window.confirm(`Hapus data ${type} ini selamanya?`)) return;
     setIsSyncing(true);
     try {
       if (type === 'all') {
         await supabase.from('attendance_records').delete().neq('status', 'X');
         await supabase.from('submissions').delete().neq('score', 'X');
         await supabase.from('holidays').delete().neq('id', '0');
-        showToast("Database dibersihkan.", "info");
+        showToast("Database cloud telah dikosongkan.", "info");
       } else {
         const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
         const { error } = await supabase.from(table).delete().eq('id', id);
         if (error) throw error;
-        showToast('Terhapus.', 'info');
+        showToast('Data terhapus.', 'info');
       }
       await fetchFromCloud(true);
     } catch (err: any) {
@@ -759,13 +707,13 @@ const App: React.FC = () => {
 
   const handleBulkDelete = async (type: 'class' | 'student' | 'assignment') => {
     const ids = type === 'class' ? selectedClassIds : type === 'student' ? selectedStudentIds : selectedAssignmentIds;
-    if (!supabase || ids.length === 0 || !window.confirm(`Hapus ${ids.length} item?`)) return;
+    if (!supabase || ids.length === 0 || !window.confirm(`Hapus ${ids.length} data terpilih?`)) return;
     setIsSyncing(true);
     try {
       const table = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
       const { error } = await supabase.from(table).delete().in('id', ids);
       if (error) throw error;
-      showToast('Berhasil dihapus massal.', 'info');
+      showToast('Penghapusan massal berhasil.', 'info');
       if (type === 'class') setSelectedClassIds([]);
       if (type === 'student') setSelectedStudentIds([]);
       if (type === 'assignment') setSelectedAssignmentIds([]);
@@ -803,7 +751,7 @@ const App: React.FC = () => {
       try {
         await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, is_submitted: isSubmitted }, { onConflict: 'assignment_id, student_id' });
       } catch (err) {
-        showToast('Gagal simpan status tugas.', 'error');
+        showToast('Gagal mengubah status tugas.', 'error');
       } finally {
         setSavingItems(prev => prev.filter(k => k !== itemKey));
       }
@@ -817,7 +765,7 @@ const App: React.FC = () => {
       try {
         await supabase.from('submissions').upsert({ assignment_id: assignmentId, student_id: studentId, score: score, is_submitted: true }, { onConflict: 'assignment_id, student_id' });
       } catch (err) {
-        showToast('Gagal simpan nilai.', 'error');
+        showToast('Gagal menginput nilai.', 'error');
       } finally {
         setSavingItems(prev => prev.filter(k => k !== itemKey));
       }
@@ -832,13 +780,13 @@ const App: React.FC = () => {
       <div className="flex-1 p-6 sm:p-12 flex flex-col overflow-hidden bg-white dark:bg-slate-900 print-scroll-reset">
         <div className="flex items-center justify-between mb-10 print-hide">
           <div className="space-y-1">
-            <h2 className="text-4xl font-black tracking-tight">Laporan Presensi</h2>
+            <h2 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Laporan Presensi</h2>
             <p className="text-slate-500 font-medium">Rekapitulasi Kehadiran Kelas {activeClass.name}</p>
           </div>
           <button onClick={() => window.print()} className="bg-slate-900 text-white px-10 py-4.5 rounded-[24px] text-sm font-black shadow-xl hover:scale-105 active:scale-95 transition-all">Cetak Laporan</button>
         </div>
         
-        <div className="flex flex-col md:flex-row md:items-center justify-between border-b dark:border-slate-800 mb-10 gap-6 print-hide">
+        <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 dark:border-slate-800 mb-10 gap-6 print-hide">
           <div className="flex gap-8">
             {(['Daily', 'Weekly', 'Monthly', 'Semester'] as const).map(tab => (
                 <button key={tab} onClick={() => setReportTab(tab)} className={`pb-5 text-sm font-black transition-all relative ${reportTab === tab ? 'text-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}>
@@ -850,47 +798,47 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-4 pb-4">
               {(reportTab === 'Daily' || reportTab === 'Weekly') && (
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border dark:border-slate-700">
+                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-1.5 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
                       <button onClick={() => { if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'prev')); else { const d = new Date(currentDate); d.setDate(d.getDate() - 7); setCurrentDate(d); }}} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">←</button>
                       <input type="date" value={formatDate(currentDate)} onChange={(e) => { const [y, m, d] = e.target.value.split('-').map(Number); setCurrentDate(new Date(y, m - 1, d)); }} className="bg-transparent border-none text-[11px] font-black text-indigo-600 dark:text-indigo-400 w-28 text-center" />
                       <button onClick={() => { if (reportTab === 'Daily') setCurrentDate((d:any) => getNextTeachingDate(d, activeClass.schedule || [], 'next')); else { const d = new Date(currentDate); d.setDate(d.getDate() + 7); setCurrentDate(d); }}} className="p-2 hover:bg-white dark:hover:bg-slate-700 rounded-xl transition-all">→</button>
                   </div>
               )}
               {reportTab === 'Monthly' && (
-                  <select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600">
+                  <select value={activeMonth} onChange={e => setActiveMonth(parseInt(e.target.value))} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600 outline-none ring-1 ring-slate-200 dark:ring-slate-700">
                       {MONTHS_2026.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
                   </select>
               )}
               {reportTab === 'Semester' && (
-                  <select value={activeSemester} onChange={e => setActiveSemester(parseInt(e.target.value) as 1 | 2)} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600">
+                  <select value={activeSemester} onChange={e => setActiveSemester(parseInt(e.target.value) as 1 | 2)} className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-indigo-600 outline-none ring-1 ring-slate-200 dark:ring-slate-700">
                       <option value={1}>Semester 1 (Jan-Jun)</option><option value={2}>Semester 2 (Jul-Des)</option>
                   </select>
               )}
           </div>
         </div>
 
-        <div className="overflow-auto flex-1 custom-scrollbar border dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset">
+        <div className="overflow-auto flex-1 custom-scrollbar border border-slate-100 dark:border-slate-700 rounded-[40px] p-6 print-scroll-reset bg-white dark:bg-transparent">
           <table className="min-w-full text-sm">
-            <thead className="text-slate-400 border-b dark:border-slate-700">
+            <thead className="text-slate-400 border-b border-slate-100 dark:border-slate-700">
                 {reportTab === 'Semester' ? (
                   <>
                     <tr>
-                      <th rowSpan={2} className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
-                      <th rowSpan={2} className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[200px]">Nama Siswa</th>
-                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => <th key={m.value} colSpan={4} className="px-2 py-4 text-center border-r dark:border-slate-700">{m.name.substring(0,3)}</th>)}
+                      <th rowSpan={2} className="px-4 py-6 text-left border-r border-slate-100 dark:border-slate-700">No</th>
+                      <th rowSpan={2} className="px-6 py-6 text-left border-r border-slate-100 dark:border-slate-700 min-w-[200px]">Nama Siswa</th>
+                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => <th key={m.value} colSpan={4} className="px-2 py-4 text-center border-r border-slate-100 dark:border-slate-700">{m.name.substring(0,3)}</th>)}
                       <th colSpan={4} className="px-4 py-4 text-center bg-slate-50 dark:bg-slate-800">Total</th>
-                      <th rowSpan={2} className="px-4 py-6 text-center text-indigo-600">%</th>
+                      <th rowSpan={2} className="px-4 py-6 text-center text-indigo-600 font-bold">%</th>
                     </tr>
                     <tr className="bg-slate-50 dark:bg-slate-800/50">
-                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => (<React.Fragment key={m.value}><th className="border text-[8px] p-1">H</th><th className="border text-[8px] p-1">S</th><th className="border text-[8px] p-1">I</th><th className="border text-[8px] p-1">A</th></React.Fragment>))}
-                      <th className="border text-[8px] p-1">H</th><th className="border text-[8px] p-1">S</th><th className="border text-[8px] p-1">I</th><th className="border text-[8px] p-1">A</th>
+                      {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => (<React.Fragment key={m.value}><th className="border border-slate-100 text-[8px] p-1">H</th><th className="border border-slate-100 text-[8px] p-1">S</th><th className="border border-slate-100 text-[8px] p-1">I</th><th className="border border-slate-100 text-[8px] p-1">A</th></React.Fragment>))}
+                      <th className="border border-slate-100 text-[8px] p-1">H</th><th className="border border-slate-100 text-[8px] p-1">S</th><th className="border border-slate-100 text-[8px] p-1">I</th><th className="border border-slate-100 text-[8px] p-1">A</th>
                     </tr>
                   </>
                 ) : (
                   <tr>
-                    <th className="px-4 py-6 text-left border-r dark:border-slate-700">No</th>
-                    <th className="px-6 py-6 text-left border-r dark:border-slate-700 min-w-[240px]">Siswa</th>
-                    {dates.map(d => (<th key={formatDate(d)} className="px-2 py-6 text-center border-r dark:border-slate-700 text-[10px] font-black">{d.getDate()}</th>))}
+                    <th className="px-4 py-6 text-left border-r border-slate-100 dark:border-slate-700">No</th>
+                    <th className="px-6 py-6 text-left border-r border-slate-100 dark:border-slate-700 min-w-[240px]">Siswa</th>
+                    {dates.map(d => (<th key={formatDate(d)} className="px-2 py-6 text-center border-r border-slate-100 dark:border-slate-700 text-[10px] font-black">{d.getDate()}</th>))}
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">H</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">S</th>
                     <th className="px-3 py-6 text-center bg-slate-50 dark:bg-slate-800">I</th>
@@ -911,9 +859,9 @@ const App: React.FC = () => {
                   const percentage = total > 0 ? Math.round((stats.H / total) * 100) : 0;
 
                   return (
-                    <tr key={student.id} className="border-b dark:border-slate-800 hover:bg-slate-50/30 dark:hover:bg-slate-800/20">
-                      <td className="px-4 py-4 text-left font-bold">{idx + 1}</td>
-                      <td className="px-6 py-4 font-bold">{student.name}</td>
+                    <tr key={student.id} className="border-b border-slate-50 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+                      <td className="px-4 py-4 text-left font-bold text-slate-400">{idx + 1}</td>
+                      <td className="px-6 py-4 font-bold text-slate-900 dark:text-white">{student.name}</td>
                       {reportTab === 'Semester' ? (
                         <>
                           {MONTHS_2026.filter(m => activeSemester === 1 ? m.value < 6 : m.value >= 6).map(m => {
@@ -924,24 +872,24 @@ const App: React.FC = () => {
                               I: monthDates.filter(d => attendance[student.id]?.[formatDate(d)] === 'I').length,
                               A: monthDates.filter(d => attendance[student.id]?.[formatDate(d)] === 'A').length,
                             };
-                            return (<React.Fragment key={m.value}><td className="border text-[9px] text-center p-1">{mStats.H}</td><td className="border text-[9px] text-center p-1">{mStats.S}</td><td className="border text-[9px] text-center p-1">{mStats.I}</td><td className="border text-[9px] text-center p-1">{mStats.A}</td></React.Fragment>);
+                            return (<React.Fragment key={m.value}><td className="border border-slate-50 text-[9px] text-center p-1">{mStats.H}</td><td className="border border-slate-50 text-[9px] text-center p-1">{mStats.S}</td><td className="border border-slate-50 text-[9px] text-center p-1">{mStats.I}</td><td className="border border-slate-50 text-[9px] text-center p-1">{mStats.A}</td></React.Fragment>);
                           })}
-                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.H}</td>
-                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.S}</td>
-                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.I}</td>
-                          <td className="border bg-slate-50 dark:bg-slate-800 text-center font-bold">{stats.A}</td>
+                          <td className="border border-slate-100 bg-slate-50/30 dark:bg-slate-800 text-center font-bold">{stats.H}</td>
+                          <td className="border border-slate-100 bg-slate-50/30 dark:bg-slate-800 text-center font-bold">{stats.S}</td>
+                          <td className="border border-slate-100 bg-slate-50/30 dark:bg-slate-800 text-center font-bold">{stats.I}</td>
+                          <td className="border border-slate-100 bg-slate-50/30 dark:bg-slate-800 text-center font-bold">{stats.A}</td>
                           <td className="px-4 py-4 text-center font-black text-indigo-600">{percentage}%</td>
                         </>
                       ) : (
                         <>
                           {dates.map(d => {
                             const status = attendance[student.id]?.[formatDate(d)] || 'H';
-                            return <td key={formatDate(d)} className={`border text-center font-black text-[10px] ${STATUS_THEMES[status as AttendanceStatus]?.color}`}>{status}</td>;
+                            return <td key={formatDate(d)} className={`border border-slate-50 text-center font-black text-[10px] ${STATUS_THEMES[status as AttendanceStatus]?.color}`}>{status}</td>;
                           })}
-                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold">{stats.H}</td>
-                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-blue-600">{stats.S}</td>
-                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-amber-600">{stats.I}</td>
-                          <td className="px-3 py-4 text-center bg-slate-50 dark:bg-slate-800 font-bold text-rose-600">{stats.A}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50/30 dark:bg-slate-800 font-bold">{stats.H}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50/30 dark:bg-slate-800 font-bold text-blue-700">{stats.S}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50/30 dark:bg-slate-800 font-bold text-amber-700">{stats.I}</td>
+                          <td className="px-3 py-4 text-center bg-slate-50/30 dark:bg-slate-800 font-bold text-rose-700">{stats.A}</td>
                         </>
                       )}
                     </tr>
@@ -957,27 +905,27 @@ const App: React.FC = () => {
   const TaskReportsView = () => {
     if (!activeClass) return null;
     return (
-      <div className="flex-1 p-6 sm:p-12 overflow-y-auto space-y-10">
+      <div className="flex-1 p-6 sm:p-12 overflow-y-auto space-y-10 bg-white dark:bg-transparent">
         <div className="flex justify-between items-center">
-          <h2 className="text-4xl font-black tracking-tight">Rekap Nilai Tugas</h2>
-          <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold">Cetak</button>
+          <h2 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">Rekap Nilai Tugas</h2>
+          <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold shadow-lg">Cetak</button>
         </div>
-        <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-[40px] border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-900/50 border-b dark:border-slate-700">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
               <tr>
-                <th className="p-6 text-left w-12">No</th>
-                <th className="p-6 text-left">Siswa</th>
+                <th className="p-6 text-left w-12 text-slate-400 font-black">No</th>
+                <th className="p-6 text-left text-slate-400 font-black uppercase text-[10px] tracking-widest">Nama Peserta Didik</th>
                 {activeClass.assignments?.map(a => (
-                  <th key={a.id} className="p-6 text-center text-[10px] font-black uppercase tracking-widest">{a.title}</th>
+                  <th key={a.id} className="p-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-400">{a.title}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y dark:divide-slate-700">
+            <tbody className="divide-y divide-slate-50 dark:divide-slate-700">
               {activeClass.students.map((s, idx) => (
-                <tr key={s.id}>
-                  <td className="p-6 font-bold">{idx + 1}</td>
-                  <td className="p-6 font-bold">{s.name}</td>
+                <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="p-6 font-bold text-slate-400">{idx + 1}</td>
+                  <td className="p-6 font-bold text-slate-900 dark:text-white">{s.name}</td>
                   {activeClass.assignments?.map(a => (
                     <td key={a.id} className="p-6 text-center font-black text-indigo-600">
                       {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
@@ -996,7 +944,7 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
+      <div className="min-h-screen login-mesh flex items-center justify-center p-6">
         <form onSubmit={(e: any) => {
           e.preventDefault();
           const target = e.target;
@@ -1005,17 +953,17 @@ const App: React.FC = () => {
           } else {
             showToast("Username atau Password salah!", "error");
           }
-        }} className="max-w-md w-full bg-white dark:bg-slate-900 p-12 rounded-[48px] shadow-2xl border dark:border-slate-800 space-y-10">
+        }} className="max-w-md w-full bg-white dark:bg-slate-900 p-12 rounded-[48px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] border border-slate-50 dark:border-slate-800 space-y-10">
           <div className="text-center space-y-3">
             <div className="w-20 h-20 bg-indigo-600 rounded-3xl mx-auto flex items-center justify-center text-white text-3xl font-black shadow-xl">S1</div>
-            <h2 className="text-3xl font-black tracking-tight">Login Guru</h2>
-            <p className="text-slate-500 font-bold">SMAN 11 MAKASSAR</p>
+            <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">Akses Guru</h2>
+            <p className="text-slate-500 font-bold text-sm">SMAN 11 MAKASSAR</p>
           </div>
           <div className="space-y-4">
-            <input name="username" type="text" placeholder="Username" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
-            <input name="password" type="password" placeholder="Password" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
+            <input name="username" type="text" placeholder="Username" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" required />
+            <input name="password" type="password" placeholder="Password" className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" required />
           </div>
-          <button type="submit" className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">Masuk</button>
+          <button type="submit" className="w-full active-gradient text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:scale-105 transition-all">Masuk ke Sistem</button>
         </form>
         <div className="fixed bottom-8 right-8 z-[100] space-y-3">
           {notifications.map(n => <div key={n.id} className={`p-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-slide-up ${n.type === 'error' ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'}`}><span className="font-black text-sm">{n.message}</span></div>)}
@@ -1024,27 +972,33 @@ const App: React.FC = () => {
     );
   }
 
-  if (isLoading) return <div className="min-h-screen bg-white dark:bg-slate-900 flex items-center justify-center text-slate-400 font-black tracking-widest animate-pulse">MEMUAT BASIS DATA...</div>;
+  if (isLoading) return <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center space-y-6">
+    <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+    <div className="text-slate-400 font-black tracking-widest text-[10px] uppercase">Menyinkronkan Basis Data Cloud...</div>
+  </div>;
 
   return (
     <div className={`min-h-screen flex ${theme === 'dark' ? 'dark' : ''} bg-white dark:bg-slate-950 font-sans`}>
       {/* SIDEBAR */}
-      <nav className="w-80 bg-slate-50 dark:bg-slate-900/50 border-r dark:border-slate-800 p-8 flex flex-col gap-10 print-hide shrink-0">
+      <nav className="w-80 bg-white dark:bg-slate-900/50 border-r border-slate-100 dark:border-slate-800 p-8 flex flex-col gap-10 print-hide shrink-0">
         <div className="space-y-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg">S1</div>
             <div>
-              <h1 className="font-black text-sm tracking-tight text-slate-900 dark:text-white uppercase leading-tight">Presensi Guru</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{school.name}</p>
+              <h1 className="font-black text-sm tracking-tight text-slate-900 dark:text-white uppercase leading-tight">Presensi Digital</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mt-0.5">{school.name}</p>
             </div>
           </div>
-          <select 
-            value={activeClassId || ''} 
-            onChange={e => setActiveClassId(e.target.value)}
-            className="w-full bg-white dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-sm outline-indigo-500"
-          >
-            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+          <div className="pt-4">
+             <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2 block">Pilih Kelas</label>
+             <select 
+               value={activeClassId || ''} 
+               onChange={e => setActiveClassId(e.target.value)}
+               className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-2xl p-4 text-xs font-black shadow-sm outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700"
+             >
+               {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+             </select>
+          </div>
         </div>
 
         <div className="flex-1 space-y-2">
@@ -1052,23 +1006,23 @@ const App: React.FC = () => {
             <button 
               key={item.view} 
               onClick={() => setView(item.view)} 
-              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${view === item.view ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-600'}`}
+              className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm transition-all ${view === item.view ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
             >
-              <span className="text-lg">{item.icon}</span> {item.label}
+              <span className="text-lg opacity-80">{item.icon}</span> {item.label}
             </button>
           ))}
         </div>
 
-        <div className="space-y-4 pt-4 border-t dark:border-slate-800">
-          <button onClick={toggleTheme} className="w-full p-4 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center gap-3 font-bold text-sm shadow-sm">
-            {theme === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+        <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <button onClick={toggleTheme} className="w-full p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center gap-3 font-bold text-xs shadow-sm hover:bg-slate-100 transition-colors">
+            {theme === 'light' ? '🌙 Gelap' : '☀️ Terang'}
           </button>
-          <button onClick={() => setIsAuthenticated(false)} className="w-full text-rose-500 font-black text-xs uppercase tracking-widest py-2 hover:underline">Logout</button>
+          <button onClick={() => setIsAuthenticated(false)} className="w-full text-rose-500 font-black text-[10px] uppercase tracking-widest py-2 hover:underline transition-all">Keluar Sistem</button>
         </div>
       </nav>
 
       {/* MAIN CONTENT */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-white dark:bg-slate-950">
         {view === 'Dashboard' && (
           <DashboardView 
             activeClass={activeClass} 
@@ -1119,24 +1073,24 @@ const App: React.FC = () => {
       <Modal 
         isOpen={!!showModal} 
         onClose={() => setShowModal(null)} 
-        title={editingItem ? `Edit ${showModal}` : `Tambah ${showModal}`}
+        title={editingItem ? `Perbarui ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}` : `Tambah ${showModal === 'class' ? 'Kelas' : showModal === 'student' ? 'Siswa' : 'Tugas'}`}
         footer={<button form="admin-form" type="submit" className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg hover:scale-105 active:scale-95 transition-all">Simpan Perubahan</button>}
       >
-        <form id="admin-form" onSubmit={handleAdminSave} className="space-y-5">
+        <form id="admin-form" onSubmit={handleAdminSave} className="space-y-6">
           {showModal === 'class' && (
             <>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nama Kelas</label>
-                <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Contoh: X.9" required />
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Nama Kelas</label>
+                <input value={adminFormData.className} onChange={e => setAdminFormData({...adminFormData, className: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="X.9" required />
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Jadwal Hari</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Jadwal Hari Mengajar</label>
                 <div className="flex gap-2">
                   {[1,2,3,4,5].map(d => (
                     <button key={d} type="button" onClick={() => {
                       const newSched = adminFormData.schedule.includes(d) ? adminFormData.schedule.filter(s => s !== d) : [...adminFormData.schedule, d];
                       setAdminFormData({...adminFormData, schedule: newSched});
-                    }} className={`w-11 h-11 rounded-xl font-black text-xs transition-all ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400'}`}>
+                    }} className={`w-11 h-11 rounded-xl font-black text-xs transition-all ${adminFormData.schedule.includes(d) ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-slate-600'}`}>
                       {DAY_NAMES[d].substring(0, 1)}
                     </button>
                   ))}
@@ -1146,16 +1100,19 @@ const App: React.FC = () => {
           )}
           {showModal === 'student' && (
             <div className="space-y-4">
-               <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Nama Lengkap" required />
-               <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="NIS" />
-               <input value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="NISN" />
+               <input value={adminFormData.studentName} onChange={e => setAdminFormData({...adminFormData, studentName: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="Nama Lengkap Siswa" required />
+               <input value={adminFormData.studentNis} onChange={e => setAdminFormData({...adminFormData, studentNis: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="Nomor Induk Siswa (NIS)" />
+               <input value={adminFormData.studentNisn} onChange={e => setAdminFormData({...adminFormData, studentNisn: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="NISN" />
             </div>
           )}
           {showModal === 'assignment' && (
             <div className="space-y-4">
-               <input value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Judul Tugas" required />
-               <textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" placeholder="Deskripsi Tugas..." rows={3} />
-               <input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500" required />
+               <input value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="Judul Tugas / Ulangan" required />
+               <textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" placeholder="Deskripsi atau keterangan tugas..." rows={3} />
+               <div className="space-y-2">
+                 <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Tenggat Waktu</label>
+                 <input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl p-5 font-bold outline-indigo-500 ring-1 ring-slate-100 dark:ring-slate-700" required />
+               </div>
             </div>
           )}
         </form>
@@ -1163,7 +1120,7 @@ const App: React.FC = () => {
 
       {/* TOASTS */}
       <div className="fixed bottom-8 right-8 z-[100] space-y-3 pointer-events-none">
-        {notifications.map(n => <div key={n.id} className={`p-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-slide-up pointer-events-auto ${n.type === 'error' ? 'bg-rose-600 text-white' : n.type === 'info' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}><span className="font-black text-sm">{n.message}</span></div>)}
+        {notifications.map(n => <div key={n.id} className={`px-8 py-5 rounded-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.2)] flex items-center gap-4 animate-slide-up pointer-events-auto ${n.type === 'error' ? 'bg-rose-600 text-white' : n.type === 'info' ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'}`}><span className="font-bold text-sm">{n.message}</span></div>)}
       </div>
     </div>
   );
