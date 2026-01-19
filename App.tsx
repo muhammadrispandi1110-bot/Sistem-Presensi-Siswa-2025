@@ -6,14 +6,6 @@ import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
 import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES, HolidayRecord } from './types.ts';
 import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
-// Menggunakan tema netral agar kontras tetap tinggi di kedua mode
-const STATUS_THEMES: Record<AttendanceStatus, { color: string, bg: string, border: string }> = {
-  'H': { color: 'text-black dark:text-white', bg: 'bg-white dark:bg-black', border: 'border-black dark:border-white' },
-  'S': { color: 'text-black dark:text-white', bg: 'bg-white dark:bg-black', border: 'border-black dark:border-white' },
-  'I': { color: 'text-black dark:text-white', bg: 'bg-white dark:bg-black', border: 'border-black dark:border-white' },
-  'A': { color: 'text-black dark:text-white', bg: 'bg-white dark:bg-black', border: 'border-black dark:border-white' }
-};
-
 interface Notification {
   message: string;
   type: 'success' | 'error' | 'info';
@@ -31,7 +23,7 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
   if (!isOpen) return null;
   const sizeClass = size === 'lg' ? 'max-w-2xl' : 'max-w-md';
   return (
-    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 print-hide backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/90 z-[9999] flex items-center justify-center p-4 print-hide backdrop-blur-sm">
       <div className={`w-full ${sizeClass} bg-white dark:bg-black flex flex-col view-transition border-4 border-black dark:border-white`}>
         <header className="flex items-center justify-between p-6 border-b-4 border-black dark:border-white">
           <h3 className="text-2xl font-black text-black dark:text-white uppercase tracking-tighter">{title}</h3>
@@ -49,7 +41,6 @@ const Modal = ({ isOpen, onClose, title, children, footer = null, size = 'md' }:
 };
 
 // --- DASHBOARD VIEW ---
-
 const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, holidays, dateStr, school, isSyncing, savingItems, handleManualSave, handleAttendanceChange, handleHolidayToggle, handleSubmissionToggle, handleScoreChange, openAdminModal }: any) => {
   if (!activeClass) return <div className="p-20 text-center text-black dark:text-white font-black text-2xl uppercase">Memproses Data...</div>;
   const isHoliday = holidays.includes(dateStr);
@@ -72,7 +63,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             {[
                 { label: 'Siswa', val: activeClass.students.length, icon: '👥' },
-                { label: 'Hadir', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr]).length, icon: '✅' },
+                { label: 'Hadir', val: isHoliday ? 0 : activeClass.students.filter((s:any) => (attendance[s.id]?.[dateStr] === 'H' || !attendance[s.id]?.[dateStr])).length, icon: '✅' },
                 { label: 'Sakit', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'S').length, icon: '🤒' },
                 { label: 'Izin', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'I').length, icon: '✉️' },
                 { label: 'Alpa', val: isHoliday ? 0 : activeClass.students.filter((s:any) => attendance[s.id]?.[dateStr] === 'A').length, icon: '❌' },
@@ -195,7 +186,6 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
 };
 
 // --- ADMIN VIEW ---
-
 const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, handleSeedDatabase, handleExportData, handleImportData, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete, isSyncing }: any) => {
   const adminSelectedClass = useMemo(() => classes.find((c:any) => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
   const allAssignments = useMemo(() => classes.flatMap((c:any) => (c.assignments || []).map((a:any) => ({...a, className: c.name, classId: c.id }))), [classes]);
@@ -360,7 +350,6 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
 };
 
 // --- MAIN APP COMPONENT ---
-
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -373,11 +362,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const root = window.document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    if (theme === 'dark') { root.classList.add('dark'); } 
+    else { root.classList.remove('dark'); }
     localStorage.setItem('theme', theme);
   }, [theme]);
 
@@ -422,9 +408,7 @@ const App: React.FC = () => {
   const fetchFromCloud = useCallback(async (isSilent = false) => {
     if (!supabase) { 
       if (!isSilent) showToast("MODE OFFLINE: Local data aktif.", "info");
-      setClasses(INITIAL_CLASSES); 
-      setIsLoading(false); 
-      return; 
+      setClasses(INITIAL_CLASSES); setIsLoading(false); return; 
     }
     if (!isSilent && classes.length === 0) setIsLoading(true);
     try {
@@ -609,7 +593,6 @@ const App: React.FC = () => {
     } catch (err: any) { showToast(`Error: ${err.message}`, 'error'); } finally { setIsSyncing(false); }
   };
 
-  // Fixed: handleBulkDelete logic
   const handleBulkDelete = async (type: 'class' | 'student' | 'assignment') => {
     const ids = type === 'class' ? selectedClassIds : type === 'student' ? selectedStudentIds : selectedAssignmentIds;
     if (!supabase || ids.length === 0 || !window.confirm(`Hapus ${ids.length} data?`)) return;
@@ -617,16 +600,12 @@ const App: React.FC = () => {
     try {
       const t = type === 'class' ? 'classes' : type === 'student' ? 'students' : 'assignments';
       await supabase.from(t).delete().in('id', ids);
-      showToast('PENGHAPUSAN MASSAL BERHASIL.', 'info');
+      showToast('BERHASIL.', 'info');
       if (type === 'class') setSelectedClassIds([]);
       else if (type === 'student') setSelectedStudentIds([]);
       else if (type === 'assignment') setSelectedAssignmentIds([]);
       await fetchFromCloud(true);
-    } catch (err: any) {
-      showToast(`Gagal: ${err.message}`, 'error');
-    } finally {
-      setIsSyncing(false);
-    }
+    } catch (err: any) { showToast(`Gagal: ${err.message}`, 'error'); } finally { setIsSyncing(false); }
   };
 
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
@@ -641,24 +620,24 @@ const App: React.FC = () => {
       await fetchFromCloud(true);
   };
 
-    const getReportDateRange = (tab: 'Daily' | 'Weekly' | 'Monthly' | 'Semester', currentDate: Date, activeMonth: number, activeSemester: 1 | 2): string => {
-        switch (tab) {
-            case 'Daily':
-                return `Tanggal: ${currentDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
-            case 'Weekly':
-                const weekDates = getWeekDates(currentDate, activeClass?.schedule);
-                if (weekDates.length === 0) return "Periode: -";
-                const start = weekDates[0];
-                const end = weekDates[weekDates.length - 1];
-                return `Periode: ${start.toLocaleDateString('id-ID')} s/d ${end.toLocaleDateString('id-ID')}`;
-            case 'Monthly':
-                return `Bulan: ${MONTHS_2026[activeMonth].name} ${defaults.startYear}`;
-            case 'Semester':
-                return `Semester: ${school.semester} (T.A. ${school.year}/${parseInt(school.year) + 1})`;
-            default:
-                return '';
-        }
-    };
+  const getReportDateRange = (tab: 'Daily' | 'Weekly' | 'Monthly' | 'Semester', currentDate: Date, activeMonth: number, activeSemester: 1 | 2): string => {
+      switch (tab) {
+          case 'Daily':
+              return `Tanggal: ${currentDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+          case 'Weekly':
+              const weekDates = getWeekDates(currentDate, activeClass?.schedule);
+              if (weekDates.length === 0) return "Periode: -";
+              const start = weekDates[0];
+              const end = weekDates[weekDates.length - 1];
+              return `Periode: ${start.toLocaleDateString('id-ID')} s/d ${end.toLocaleDateString('id-ID')}`;
+          case 'Monthly':
+              return `Bulan: ${MONTHS_2026[activeMonth].name} ${defaults.startYear}`;
+          case 'Semester':
+              return `Semester: ${school.semester} (T.A. ${school.year}/${parseInt(school.year) + 1})`;
+          default:
+              return '';
+      }
+  };
 
   // --- REPORT VIEWS ---
   const ReportsView = () => {
@@ -669,10 +648,11 @@ const App: React.FC = () => {
     
     return (
       <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-white dark:bg-black print-container">
-        <div className="print-only mb-6 border-b-2 border-black pb-4 text-center">
-            <h3 className="text-xl font-black uppercase tracking-wider">{school.name}</h3>
-            <h4 className="text-lg font-bold uppercase">{reportTitle}</h4>
-            <p className="text-base font-semibold">{dateRange}</p>
+        {/* Only Visible When Printing */}
+        <div className="print-only print-header">
+            <h1 className="text-2xl font-black uppercase tracking-widest">{school.name}</h1>
+            <h2 className="text-xl font-bold uppercase mt-2">{reportTitle}</h2>
+            <p className="text-sm font-semibold mt-1">{dateRange}</p>
         </div>
 
         <div className="flex items-center justify-between mb-8 print-hide">
@@ -755,10 +735,10 @@ const App: React.FC = () => {
 
     return (
       <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-8 bg-white dark:bg-black print-container">
-        <div className="print-only mb-6 border-b-2 border-black pb-4 text-center">
-            <h3 className="text-xl font-black uppercase tracking-wider">{school.name}</h3>
-            <h4 className="text-lg font-bold uppercase">{reportTitle}</h4>
-            <p className="text-base font-semibold">{dateRange}</p>
+        <div className="print-only print-header">
+            <h1 className="text-2xl font-black uppercase tracking-widest">{school.name}</h1>
+            <h2 className="text-xl font-bold uppercase mt-2">{reportTitle}</h2>
+            <p className="text-sm font-semibold mt-1">{dateRange}</p>
         </div>
 
         <div className="flex justify-between items-center border-b-4 border-black dark:border-white pb-8 print-hide">
@@ -795,8 +775,6 @@ const App: React.FC = () => {
     );
   };
 
-  // --- RENDER ---
-
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center p-6 transition-colors">
@@ -806,7 +784,7 @@ const App: React.FC = () => {
           if (target.username.value === APP_CONFIG.auth.username && target.password.value === APP_CONFIG.auth.password) { setIsAuthenticated(true); } else { showToast("SALAH!", "error"); }
         }} className="max-w-md w-full bg-white dark:bg-black p-12 border-8 border-black dark:border-white shadow-[20px_20px_0px_0px_rgba(0,0,0,1)] dark:shadow-[20px_20px_0px_0px_rgba(255,255,255,1)] space-y-10">
           <div className="text-center space-y-4">
-            <div className="w-24 h-24 bg-black dark:bg-white text-white dark:text-black rounded-none mx-auto flex items-center justify-center text-5xl font-black">11</div>
+            <div className="w-24 h-24 bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-5xl font-black">11</div>
             <h2 className="text-4xl font-black text-black dark:text-white uppercase tracking-tighter">Login</h2>
             <p className="text-black dark:text-white font-black text-sm uppercase opacity-60">SMAN 11 MKS</p>
           </div>
@@ -866,7 +844,7 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden print:overflow-visible print:h-auto">
         {view === 'Dashboard' && (
           <DashboardView activeClass={activeClass} currentDate={currentDate} setCurrentDate={setCurrentDate} attendance={attendance} holidays={holidays} dateStr={dateStr} school={school} isSyncing={isSyncing} savingItems={savingItems} handleManualSave={handleManualSave} handleAttendanceChange={handleAttendanceChange} handleHolidayToggle={handleHolidayToggle} handleSubmissionToggle={handleSubmissionToggle} handleScoreChange={handleScoreChange} openAdminModal={openAdminModal} />
         )}
@@ -921,7 +899,7 @@ const App: React.FC = () => {
         </form>
       </Modal>
 
-      <div className="fixed bottom-10 right-10 z-[100] space-y-4 pointer-events-none">
+      <div className="fixed bottom-10 right-10 z-[100] space-y-4 pointer-events-none print:hidden">
         {notifications.map(n => <div key={n.id} className={`px-10 py-5 border-8 border-black dark:border-white shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] dark:shadow-[10px_10px_0px_0px_rgba(255,255,255,1)] flex items-center gap-6 animate-slide-up pointer-events-auto bg-white dark:bg-black transition-all`}><span className="font-black text-sm uppercase tracking-widest text-black dark:text-white">{n.message}</span></div>)}
       </div>
     </div>
