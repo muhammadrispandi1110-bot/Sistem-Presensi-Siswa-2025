@@ -11,13 +11,15 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
-            background-color: #ffffff;
-            color: #000000;
+            transition: background-color 0.2s ease, color 0.2s ease;
         }
         
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        /* High Contrast Scrollbar */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: #ffffff; }
-        ::-webkit-scrollbar-thumb { background: #000000; border-radius: 0px; }
+        ::-webkit-scrollbar-thumb { background: #000000; border: 2px solid #ffffff; }
+        .dark ::-webkit-scrollbar-track { background: #000000; }
+        .dark ::-webkit-scrollbar-thumb { background: #ffffff; border: 2px solid #000000; }
 
         .view-transition {
             animation: fadeIn 0.2s ease-out forwards;
@@ -28,39 +30,28 @@
             to { opacity: 1; }
         }
 
-        input, select, textarea {
-            color: #000000 !important;
-        }
-
-        /* Print Styles Ultra Clear */
+        /* Print Styles */
         @media print {
-            @page { 
-                size: landscape; 
-                margin: 1cm; 
-            }
-            body { 
-                background: white !important; 
-                color: black !important; 
-            }
+            @page { size: landscape; margin: 1cm; }
+            body { background: white !important; color: black !important; }
             .print-hide { display: none !important; }
-            .print-scroll-reset { 
-                overflow: visible !important; 
-                height: auto !important; 
-            }
-            table { 
-                width: 100% !important; 
-                border-collapse: collapse !important; 
-                border: 2px solid #000 !important;
-            }
-            th, td { 
-                border: 1px solid #000 !important; 
-                padding: 4px !important; 
-                color: black !important;
-                font-size: 9pt !important; 
-            }
-            th { background-color: #ffffff !important; font-weight: 800 !important; }
+            table { width: 100% !important; border-collapse: collapse !important; border: 3px solid #000 !important; }
+            th, td { border: 1.5px solid #000 !important; padding: 6px !important; color: black !important; font-size: 9pt !important; }
+            th { background-color: #eee !important; font-weight: 800 !important; }
         }
     </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: '#000000'
+                    }
+                }
+            }
+        }
+    </script>
 <script type="importmap">
 {
   "imports": {
@@ -72,7 +63,7 @@
 }
 </script>
 </head>
-<body class="bg-white text-black">
+<body class="bg-white text-black dark:bg-black dark:text-white">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>
