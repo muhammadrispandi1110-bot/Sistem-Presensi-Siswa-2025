@@ -37,14 +37,61 @@
             to { opacity: 1; }
         }
 
+        .print-only {
+            display: none;
+        }
+
         /* Print Styles */
         @media print {
-            @page { size: landscape; margin: 1cm; }
-            body { background: white !important; color: black !important; }
-            .print-hide { display: none !important; }
-            table { width: 100% !important; border-collapse: collapse !important; border: 3px solid #000 !important; }
-            th, td { border: 1.5px solid #000 !important; padding: 6px !important; color: black !important; font-size: 9pt !important; }
-            th { background-color: #eee !important; font-weight: 800 !important; }
+            @page { 
+                size: landscape; 
+                margin: 1cm; 
+            }
+            body { 
+                background: white !important; 
+                color: black !important; 
+            }
+            .print-hide { 
+                display: none !important; 
+            }
+            .print-only {
+                display: block !important;
+            }
+            .print-container {
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            .print-table-container {
+                border: none !important;
+                box-shadow: none !important;
+                overflow: visible !important;
+                height: auto !important;
+            }
+            table { 
+                width: 100% !important; 
+                border-collapse: collapse !important; 
+                border: 3px solid #000 !important; 
+                page-break-inside: auto;
+            }
+            tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+            }
+            thead {
+                display: table-header-group; /* Ensures header repeats on each page */
+            }
+            th, td { 
+                border: 1.5px solid #000 !important; 
+                padding: 6px !important; 
+                color: black !important; 
+                font-size: 9pt !important; 
+            }
+            th { 
+                background-color: #eee !important; 
+                font-weight: 800 !important; 
+            }
         }
     </style>
     <script>

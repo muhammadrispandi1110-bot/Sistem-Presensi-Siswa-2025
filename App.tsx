@@ -607,13 +607,40 @@ const App: React.FC = () => {
       await fetchFromCloud(true);
   };
 
+    const getReportDateRange = (tab: 'Daily' | 'Weekly' | 'Monthly' | 'Semester', currentDate: Date, activeMonth: number, activeSemester: 1 | 2): string => {
+        switch (tab) {
+            case 'Daily':
+                return `Tanggal: ${currentDate.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+            case 'Weekly':
+                const weekDates = getWeekDates(currentDate, activeClass?.schedule);
+                if (weekDates.length === 0) return "Periode: -";
+                const start = weekDates[0];
+                const end = weekDates[weekDates.length - 1];
+                return `Periode: ${start.toLocaleDateString('id-ID')} s/d ${end.toLocaleDateString('id-ID')}`;
+            case 'Monthly':
+                return `Bulan: ${MONTHS_2026[activeMonth].name} ${defaults.startYear}`;
+            case 'Semester':
+                return `Semester: ${school.semester} (T.A. ${school.year}/${parseInt(school.year) + 1})`;
+            default:
+                return '';
+        }
+    };
+
   // --- REPORT VIEWS ---
   const ReportsView = () => {
     if (!activeClass) return <div className="p-20 text-center text-black dark:text-white font-black uppercase text-2xl">Laporan Memuat...</div>;
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
+    const dateRange = getReportDateRange(reportTab, currentDate, activeMonth, activeSemester);
+    const reportTitle = `Laporan Presensi ${activeClass.name}`;
     
     return (
-      <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-white dark:bg-black print-scroll-reset">
+      <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-white dark:bg-black print-container">
+        <div className="print-only mb-6 border-b-2 border-black pb-4 text-center">
+            <h3 className="text-xl font-black uppercase tracking-wider">{school.name}</h3>
+            <h4 className="text-lg font-bold uppercase">{reportTitle}</h4>
+            <p className="text-base font-semibold">{dateRange}</p>
+        </div>
+
         <div className="flex items-center justify-between mb-8 print-hide">
           <div className="space-y-1">
             <h2 className="text-5xl font-black text-black dark:text-white tracking-tighter uppercase">Rekap Presensi</h2>
@@ -648,7 +675,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-auto flex-1 border-4 border-black dark:border-white print-scroll-reset bg-white dark:bg-black">
+        <div className="overflow-auto flex-1 border-4 border-black dark:border-white bg-white dark:bg-black print-table-container">
           <table className="min-w-full text-sm border-collapse">
             <thead className="bg-gray-50 dark:bg-white/5 text-black dark:text-white border-b-4 border-black dark:border-white font-black uppercase">
                 <tr>
@@ -689,13 +716,22 @@ const App: React.FC = () => {
 
   const TaskReportsView = () => {
     if (!activeClass) return null;
+    const reportTitle = `Rekap Nilai & Tugas ${activeClass.name}`;
+    const dateRange = `Tahun Ajaran ${school.year} / Semester ${school.semester}`;
+
     return (
-      <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-8 bg-white dark:bg-black">
-        <div className="flex justify-between items-center border-b-4 border-black dark:border-white pb-8">
+      <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-8 bg-white dark:bg-black print-container">
+        <div className="print-only mb-6 border-b-2 border-black pb-4 text-center">
+            <h3 className="text-xl font-black uppercase tracking-wider">{school.name}</h3>
+            <h4 className="text-lg font-bold uppercase">{reportTitle}</h4>
+            <p className="text-base font-semibold">{dateRange}</p>
+        </div>
+
+        <div className="flex justify-between items-center border-b-4 border-black dark:border-white pb-8 print-hide">
           <h2 className="text-5xl font-black text-black dark:text-white uppercase tracking-tighter">Rekap Nilai</h2>
           <button onClick={() => window.print()} className="bg-black text-white dark:bg-white dark:text-black px-10 py-5 font-black border-4 border-black dark:border-white hover:bg-white hover:text-black dark:hover:bg-black dark:hover:text-white transition-all uppercase">CETAK</button>
         </div>
-        <div className="bg-white dark:bg-black border-4 border-black dark:border-white overflow-hidden">
+        <div className="bg-white dark:bg-black border-4 border-black dark:border-white overflow-hidden print-table-container">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-black dark:bg-white text-white dark:text-black border-b-4 border-black dark:border-white font-black uppercase">
               <tr>
