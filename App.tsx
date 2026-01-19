@@ -650,15 +650,15 @@ const App: React.FC = () => {
 
         <div className="overflow-auto flex-1 border-4 border-black dark:border-white print-scroll-reset bg-white dark:bg-black">
           <table className="min-w-full text-sm border-collapse">
-            <thead className="text-black dark:text-white border-b-4 border-black dark:border-white font-black uppercase">
+            <thead className="bg-gray-50 dark:bg-white/5 text-black dark:text-white border-b-4 border-black dark:border-white font-black uppercase">
                 <tr>
                     <th className="px-4 py-4 text-left border-2 border-black dark:border-white text-[10px]">No</th>
                     <th className="px-6 py-4 text-left border-2 border-black dark:border-white min-w-[200px] text-[10px]">Siswa</th>
                     {dates.map(d => (<th key={formatDate(d)} className="px-2 py-4 text-center border border-black/20 dark:border-white/20 text-[10px]">{d.getDate()}</th>))}
-                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-black/5 dark:bg-white/5">H</th>
-                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-black/5 dark:bg-white/5">S</th>
-                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-black/5 dark:bg-white/5">I</th>
-                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-black/5 dark:bg-white/5">A</th>
+                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-gray-100 dark:bg-white/10">H</th>
+                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-gray-100 dark:bg-white/10">S</th>
+                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-gray-100 dark:bg-white/10">I</th>
+                    <th className="px-3 py-4 text-center border-2 border-black dark:border-white text-[10px] bg-gray-100 dark:bg-white/10">A</th>
                 </tr>
             </thead>
             <tbody className="font-black text-black dark:text-white">
@@ -666,17 +666,17 @@ const App: React.FC = () => {
                   const rowAttendance = dates.map(d => attendance[student.id]?.[formatDate(d)] || 'H');
                   const stats = { H: rowAttendance.filter(s => s === 'H').length, S: rowAttendance.filter(s => s === 'S').length, I: rowAttendance.filter(s => s === 'I').length, A: rowAttendance.filter(s => s === 'A').length };
                   return (
-                    <tr key={student.id} className="hover:bg-black/5 dark:hover:bg-white/5 transition-colors border-b border-black dark:border-white">
+                    <tr key={student.id} className="odd:bg-gray-50/50 dark:odd:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border-b border-black/20 dark:border-white/20">
                       <td className="px-4 py-3 text-left border-r-2 border-black dark:border-white">{idx + 1}</td>
                       <td className="px-6 py-3 border-r-2 border-black dark:border-white uppercase text-[10px] truncate max-w-[300px]">{student.name}</td>
                       {dates.map(d => {
                         const s = attendance[student.id]?.[formatDate(d)] || 'H';
                         return <td key={formatDate(d)} className="border-r border-black/10 dark:border-white/10 text-center text-[10px]">{s}</td>;
                       })}
-                      <td className="px-3 py-3 text-center border-l-2 border-black dark:border-white bg-black/5 dark:bg-white/5">{stats.H}</td>
-                      <td className="px-3 py-3 text-center border-l border-black dark:border-white bg-black/5 dark:bg-white/5">{stats.S}</td>
-                      <td className="px-3 py-3 text-center border-l border-black dark:border-white bg-black/5 dark:bg-white/5">{stats.I}</td>
-                      <td className="px-3 py-3 text-center border-l border-black dark:border-white bg-black/5 dark:bg-white/5">{stats.A}</td>
+                      <td className="px-3 py-3 text-center border-l-2 border-black dark:border-white bg-gray-100 dark:bg-white/10 font-bold">{stats.H}</td>
+                      <td className="px-3 py-3 text-center border-l border-black/20 dark:border-white/20 bg-gray-100 dark:bg-white/10 font-bold">{stats.S}</td>
+                      <td className="px-3 py-3 text-center border-l border-black/20 dark:border-white/20 bg-gray-100 dark:bg-white/10 font-bold">{stats.I}</td>
+                      <td className="px-3 py-3 text-center border-l border-black/20 dark:border-white/20 bg-gray-100 dark:bg-white/10 font-bold">{stats.A}</td>
                     </tr>
                   );
                 })}
@@ -708,7 +708,7 @@ const App: React.FC = () => {
             </thead>
             <tbody className="font-black text-black dark:text-white">
               {activeClass.students.map((s, idx) => (
-                <tr key={s.id} className="hover:bg-black/5 dark:hover:bg-white/5 border-b-2 border-black dark:border-white">
+                <tr key={s.id} className="odd:bg-gray-50/50 dark:odd:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border-b-2 border-black/20 dark:border-white/20">
                   <td className="p-6 border-r-2 border-black dark:border-white text-center">{idx + 1}</td>
                   <td className="p-6 border-r-2 border-black dark:border-white uppercase text-xs">{s.name}</td>
                   {activeClass.assignments?.map(a => (
