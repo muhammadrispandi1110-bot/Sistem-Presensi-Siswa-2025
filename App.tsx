@@ -198,6 +198,7 @@ const DashboardView = ({ activeClass, currentDate, setCurrentDate, attendance, h
 
 const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adminTab, setAdminTab, handleManualSave, handleSeedDatabase, handleExportData, handleImportData, openAdminModal, selectedClassIds, setSelectedClassIds, selectedStudentIds, setSelectedStudentIds, selectedAssignmentIds, setSelectedAssignmentIds, handleDeleteItem, handleBulkDelete, isSyncing }: any) => {
   const adminSelectedClass = useMemo(() => classes.find((c:any) => c.id === adminSelectedClassId), [classes, adminSelectedClassId]);
+  const allAssignments = useMemo(() => classes.flatMap((c:any) => (c.assignments || []).map((a:any) => ({...a, className: c.name, classId: c.id }))), [classes]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -281,6 +282,39 @@ const AdminView = ({ classes, adminSelectedClassId, setAdminSelectedClassId, adm
                         <td className="p-4 border-2 border-black dark:border-white text-right space-x-4">
                           <button onClick={() => openAdminModal('student', s)} className="text-black dark:text-white font-black text-xs uppercase underline">EDIT</button>
                           <button onClick={() => handleDeleteItem('student', s.id)} className="text-rose-600 font-black text-xs uppercase underline">HAPUS</button>
+                        </td>
+                      </tr>
+                  ))}</tbody>
+              </table></div>
+            </div>
+          )}
+
+          {adminTab === 'Tugas' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center bg-black dark:bg-white text-white dark:text-black p-4 border-b-4 border-black dark:border-white">
+                <h3 className="text-xl font-black uppercase">Manajemen Tugas</h3>
+                <div className="flex gap-2">
+                  {selectedAssignmentIds.length > 0 && <button onClick={() => handleBulkDelete('assignment')} className="bg-rose-600 text-white px-4 py-2 text-xs font-black uppercase border-2 border-black">Hapus ({selectedAssignmentIds.length})</button>}
+                  <button onClick={() => openAdminModal('assignment')} className="bg-white dark:bg-black text-black dark:text-white px-6 py-2 text-xs font-black uppercase border-2 border-black dark:border-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all">+ BARU</button>
+                </div>
+              </div>
+              <div className="overflow-x-auto"><table className="w-full border-collapse">
+                  <thead className="bg-white dark:bg-black text-black dark:text-white"><tr>
+                      <th className="p-4 text-center w-12 border-2 border-black dark:border-white font-black">#</th>
+                      <th className="p-4 text-left border-2 border-black dark:border-white font-black uppercase text-xs">JUDUL TUGAS</th>
+                      <th className="p-4 text-left border-2 border-black dark:border-white font-black uppercase text-xs">KELAS</th>
+                      <th className="p-4 text-left border-2 border-black dark:border-white font-black uppercase text-xs">TENGGAT</th>
+                      <th className="p-4 text-right border-2 border-black dark:border-white font-black uppercase text-xs">AKSI</th>
+                  </tr></thead>
+                  <tbody>{allAssignments.map((a:any) => (
+                      <tr key={a.id} className="hover:bg-black/5 dark:hover:bg-white/5">
+                        <td className="p-4 text-center border-2 border-black dark:border-white"><input type="checkbox" checked={selectedAssignmentIds.includes(a.id)} onChange={() => setSelectedAssignmentIds((prev:any) => prev.includes(a.id) ? prev.filter((i:any) => i !== a.id) : [...prev, a.id])} className="w-6 h-6 accent-black" /></td>
+                        <td className="p-4 font-black text-black dark:text-white border-2 border-black dark:border-white uppercase">{a.title}</td>
+                        <td className="p-4 font-black text-black dark:text-white border-2 border-black dark:border-white uppercase text-xs">{a.className}</td>
+                        <td className="p-4 font-black text-black dark:text-white border-2 border-black dark:border-white uppercase text-xs">{new Date(a.dueDate).toLocaleDateString('id-ID')}</td>
+                        <td className="p-4 text-right space-x-4 border-2 border-black dark:border-white">
+                          <button onClick={() => openAdminModal('assignment', a)} className="text-black dark:text-white font-black text-xs uppercase underline">EDIT</button>
+                          <button onClick={() => handleDeleteItem('assignment', a.id)} className="text-rose-600 font-black text-xs uppercase underline">HAPUS</button>
                         </td>
                       </tr>
                   ))}</tbody>
@@ -376,7 +410,7 @@ const App: React.FC = () => {
   const [adminFormData, setAdminFormData] = useState({ 
     className: '', schedule: defaults.teachingDays,
     studentName: '', studentNis: '', studentNisn: '',
-    assignmentTitle: '', assignmentDesc: '', assignmentDueDate: ''
+    assignmentTitle: '', assignmentDesc: '', assignmentDueDate: '', assignmentClassId: ''
   });
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
@@ -538,12 +572,12 @@ const App: React.FC = () => {
     if (item) {
         if (type === 'class') setAdminFormData({ ...adminFormData, className: item.name, schedule: item.schedule || defaults.teachingDays });
         else if (type === 'student') setAdminFormData({ ...adminFormData, studentName: item.name, studentNis: item.nis, studentNisn: item.nisn });
-        else if (type === 'assignment') setAdminFormData({ ...adminFormData, assignmentTitle: item.title, assignmentDesc: item.description, assignmentDueDate: item.dueDate });
+        else if (type === 'assignment') setAdminFormData({ ...adminFormData, assignmentTitle: item.title, assignmentDesc: item.description, assignmentDueDate: item.dueDate, assignmentClassId: item.classId });
     } else {
-        setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: formatDate(new Date()) });
+        setAdminFormData({ className: '', schedule: defaults.teachingDays, studentName: '', studentNis: '', studentNisn: '', assignmentTitle: '', assignmentDesc: '', assignmentDueDate: formatDate(new Date()), assignmentClassId: adminSelectedClassId || (classes[0]?.id || '') });
     }
     setShowModal(type);
-  }, [adminFormData, defaults.teachingDays]);
+  }, [adminFormData, defaults.teachingDays, adminSelectedClassId, classes]);
 
   const handleAdminSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -557,7 +591,7 @@ const App: React.FC = () => {
         const payload = { name: adminFormData.studentName, nis: adminFormData.studentNis, nisn: adminFormData.studentNisn, class_id: adminSelectedClassId };
         editingItem ? await supabase.from('students').update(payload).eq('id', editingItem.id) : await supabase.from('students').insert(payload);
       } else if (showModal === 'assignment') {
-        const payload = { title: adminFormData.assignmentTitle, description: adminFormData.assignmentDesc, due_date: adminFormData.assignmentDueDate, class_id: adminSelectedClassId || activeClassId };
+        const payload = { title: adminFormData.assignmentTitle, description: adminFormData.assignmentDesc, due_date: adminFormData.assignmentDueDate, class_id: adminFormData.assignmentClassId };
         editingItem ? await supabase.from('assignments').update(payload).eq('id', editingItem.id) : await supabase.from('assignments').insert(payload);
       }
       showToast('SAVED.', 'success');
@@ -872,6 +906,12 @@ const App: React.FC = () => {
             <div className="space-y-5">
                <input value={adminFormData.assignmentTitle} onChange={e => setAdminFormData({...adminFormData, assignmentTitle: e.target.value})} className="w-full bg-white dark:bg-black border-4 border-black dark:border-white p-5 font-black outline-none uppercase text-black dark:text-white" placeholder="JUDUL TUGAS" required />
                <textarea value={adminFormData.assignmentDesc} onChange={e => setAdminFormData({...adminFormData, assignmentDesc: e.target.value})} className="w-full bg-white dark:bg-black border-4 border-black dark:border-white p-5 font-black outline-none uppercase text-black dark:text-white" placeholder="INFO..." rows={3} />
+               <div className="space-y-2">
+                 <label className="text-xs font-black uppercase text-black dark:text-white">Kelas</label>
+                 <select value={adminFormData.assignmentClassId} onChange={e => setAdminFormData({...adminFormData, assignmentClassId: e.target.value})} className="w-full bg-white dark:bg-black border-4 border-black dark:border-white p-5 font-black outline-none uppercase text-black dark:text-white" required>
+                    {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name.toUpperCase()}</option>)}
+                 </select>
+               </div>
                <div className="space-y-2">
                  <label className="text-xs font-black uppercase text-black dark:text-white">Deadline</label>
                  <input type="date" value={adminFormData.assignmentDueDate} onChange={e => setAdminFormData({...adminFormData, assignmentDueDate: e.target.value})} className="w-full bg-white dark:bg-black border-4 border-black dark:border-white p-5 font-black outline-none text-black dark:text-white" required />
