@@ -648,7 +648,6 @@ const App: React.FC = () => {
     
     return (
       <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-white dark:bg-black print-container">
-        {/* Only Visible When Printing */}
         <div className="print-only print-header">
             <h1 className="text-2xl font-black uppercase tracking-widest">{school.name}</h1>
             <h2 className="text-xl font-bold uppercase mt-2">{reportTitle}</h2>
@@ -704,15 +703,33 @@ const App: React.FC = () => {
             </thead>
             <tbody className="font-black text-black dark:text-white">
                 {activeClass.students.map((student, idx) => {
-                  const rowAttendance = dates.map(d => attendance[student.id]?.[formatDate(d)] || 'H');
-                  const stats = { H: rowAttendance.filter(s => s === 'H').length, S: rowAttendance.filter(s => s === 'S').length, I: rowAttendance.filter(s => s === 'I').length, A: rowAttendance.filter(s => s === 'A').length };
+                  const rowAttendance = dates.map(d => {
+                    const dStr = formatDate(d);
+                    if (holidays.includes(dStr)) return 'LIBUR';
+                    return attendance[student.id]?.[dStr] || 'H';
+                  });
+                  const stats = { 
+                    H: rowAttendance.filter(s => s === 'H').length, 
+                    S: rowAttendance.filter(s => s === 'S').length, 
+                    I: rowAttendance.filter(s => s === 'I').length, 
+                    A: rowAttendance.filter(s => s === 'A').length 
+                  };
                   return (
                     <tr key={student.id} className="odd:bg-gray-50/50 dark:odd:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border-b border-black/20 dark:border-white/20">
                       <td className="px-4 py-3 text-left border-r-2 border-black dark:border-white">{idx + 1}</td>
                       <td className="px-6 py-3 border-r-2 border-black dark:border-white uppercase text-[10px] truncate max-w-[300px]">{student.name}</td>
                       {dates.map(d => {
-                        const s = attendance[student.id]?.[formatDate(d)] || 'H';
-                        return <td key={formatDate(d)} className="border-r border-black/10 dark:border-white/10 text-center text-[10px]">{s}</td>;
+                        const dStr = formatDate(d);
+                        const isHoliday = holidays.includes(dStr);
+                        const status = isHoliday ? (reportTab === 'Daily' ? 'LIBUR' : 'L') : (attendance[student.id]?.[dStr] || 'H');
+                        return (
+                          <td 
+                            key={dStr} 
+                            className={`border-r border-black/10 dark:border-white/10 text-center text-[10px] ${isHoliday ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 font-extrabold' : ''}`}
+                          >
+                            {status}
+                          </td>
+                        );
                       })}
                       <td className="px-3 py-3 text-center border-l-2 border-black dark:border-white bg-gray-100 dark:bg-white/10 font-bold">{stats.H}</td>
                       <td className="px-3 py-3 text-center border-l border-black/20 dark:border-white/20 bg-gray-100 dark:bg-white/10 font-bold">{stats.S}</td>
