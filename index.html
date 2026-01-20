@@ -11,30 +11,30 @@
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
             -webkit-tap-highlight-color: transparent;
-            transition: background-color 0.2s ease, color 0.2s ease;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         /* Transisi Global */
         *, *::before, *::after {
-            transition-property: background-color, border-color, color, fill, stroke;
+            transition-property: background-color, border-color, color, fill, stroke, shadow;
             transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-            transition-duration: 200ms;
+            transition-duration: 300ms;
         }
         
-        /* Custom Scrollbar */
+        /* Custom Scrollbar - Themed for Blue */
         ::-webkit-scrollbar { width: 10px; height: 10px; }
-        ::-webkit-scrollbar-track { background: #ffffff; }
-        ::-webkit-scrollbar-thumb { background: #000000; border: 2px solid #ffffff; }
-        .dark ::-webkit-scrollbar-track { background: #000000; }
-        .dark ::-webkit-scrollbar-thumb { background: #ffffff; border: 2px solid #000000; }
+        ::-webkit-scrollbar-track { background: #eff6ff; } /* bg-blue-50 */
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border: 2px solid #eff6ff; }
+        .dark ::-webkit-scrollbar-track { background: #001529; }
+        .dark ::-webkit-scrollbar-thumb { background: #1e40af; border: 2px solid #001529; }
 
         .view-transition {
-            animation: fadeIn 0.15s ease-out forwards;
+            animation: fadeIn 0.25s ease-out forwards;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .print-only {
@@ -48,7 +48,6 @@
                 margin: 1.5cm; 
             }
             
-            /* Reset Layout for Printing */
             html, body, #root, main, .flex-1, .print-container {
                 height: auto !important;
                 overflow: visible !important;
@@ -81,7 +80,7 @@
             }
 
             thead {
-                display: table-header-group !important; /* Repeats header on new pages */
+                display: table-header-group !important;
             }
 
             tr {
@@ -102,7 +101,6 @@
                 font-weight: bold !important;
             }
             
-            /* Header Specific Styling */
             .print-header {
                 text-align: center;
                 margin-bottom: 20px;
@@ -117,7 +115,17 @@
             theme: {
                 extend: {
                     colors: {
-                        brand: '#000000'
+                        navy: {
+                            900: '#001529',
+                            800: '#002140',
+                            700: '#003366',
+                        },
+                        lightblue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            500: '#3b82f6',
+                        }
                     }
                 }
             }
@@ -134,7 +142,7 @@
 }
 </script>
 </head>
-<body class="bg-white text-black dark:bg-black dark:text-white">
+<body class="bg-blue-50 text-slate-900 dark:bg-navy-900 dark:text-blue-50">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
 </body>
