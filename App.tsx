@@ -761,6 +761,14 @@ const App: React.FC = () => {
     const reportTitle = `Rekap Nilai & Tugas ${activeClass.name}`;
     const dateRange = `Tahun Ajaran ${school.year} / Semester ${school.semester}`;
 
+    // Perhitungan Rata-rata per Tugas (Assignment)
+    const assignmentAverages = activeClass.assignments?.map(a => {
+      const scores = Object.values(a.submissions)
+        .map(sub => parseFloat(sub.score))
+        .filter(score => !isNaN(score));
+      return scores.length > 0 ? (scores.reduce((sum, s) => sum + s, 0) / scores.length).toFixed(1) : '-';
+    }) || [];
+
     return (
       <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-8 bg-blue-50 dark:bg-navy-900 print-container">
         <div className="print-only print-header">
@@ -773,7 +781,7 @@ const App: React.FC = () => {
           <h2 className="text-5xl font-black text-blue-900 dark:text-blue-100 uppercase tracking-tighter">Rekap Nilai</h2>
           <button onClick={() => window.print()} className="bg-blue-900 text-white dark:bg-blue-500 dark:text-white px-10 py-5 font-black border-4 border-blue-900 dark:border-blue-100 hover:bg-blue-800 transition-all uppercase shadow-[6px_6px_0px_0px_rgba(30,58,138,1)]">CETAK</button>
         </div>
-        <div className="bg-white dark:bg-navy-800 border-4 border-blue-900 dark:border-blue-400 overflow-hidden shadow-xl">
+        <div className="bg-white dark:bg-navy-800 border-4 border-blue-900 dark:border-blue-400 overflow-hidden shadow-xl print-table-container">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-blue-900 dark:bg-blue-400 text-white dark:text-navy-900 border-b-4 border-blue-900 dark:border-blue-100 font-black uppercase">
               <tr>
@@ -782,20 +790,43 @@ const App: React.FC = () => {
                 {activeClass.assignments?.map(a => (
                   <th key={a.id} className="p-6 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest">{a.title}</th>
                 ))}
+                <th className="p-6 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest bg-blue-800 dark:bg-blue-600">Rata-rata</th>
               </tr>
             </thead>
             <tbody className="font-bold text-slate-800 dark:text-blue-50">
-              {activeClass.students.map((s, idx) => (
-                <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b-2 border-blue-100 dark:border-navy-900">
-                  <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 text-center">{idx + 1}</td>
-                  <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-xs">{s.name}</td>
-                  {activeClass.assignments?.map(a => (
-                    <td key={a.id} className="p-6 text-center border-r-2 border-blue-900 dark:border-blue-400">
-                      {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
+              {activeClass.students.map((s, idx) => {
+                // Perhitungan Rata-rata per Siswa
+                const studentScores = activeClass.assignments?.map(a => parseFloat(a.submissions[s.id]?.score))
+                  .filter(score => !isNaN(score)) || [];
+                const studentAverage = studentScores.length > 0 
+                  ? (studentScores.reduce((sum, val) => sum + val, 0) / studentScores.length).toFixed(1)
+                  : '-';
+
+                return (
+                  <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b-2 border-blue-100 dark:border-navy-900">
+                    <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 text-center">{idx + 1}</td>
+                    <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-xs">{s.name}</td>
+                    {activeClass.assignments?.map(a => (
+                      <td key={a.id} className="p-6 text-center border-r-2 border-blue-900 dark:border-blue-400">
+                        {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
+                      </td>
+                    ))}
+                    <td className="p-6 text-center border-r-2 border-blue-900 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30 font-black text-blue-800 dark:text-blue-300">
+                      {studentAverage}
                     </td>
-                  ))}
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
+              {/* Footer Row for Assignment Averages */}
+              <tr className="bg-blue-100 dark:bg-navy-700 font-black uppercase text-blue-900 dark:text-blue-100">
+                <td colSpan={2} className="p-6 border-2 border-blue-900 dark:border-blue-400 text-right tracking-widest">Rata-rata Kelas</td>
+                {assignmentAverages.map((avg, i) => (
+                  <td key={i} className="p-6 text-center border-2 border-blue-900 dark:border-blue-400">{avg}</td>
+                ))}
+                <td className="p-6 text-center border-2 border-blue-900 dark:border-blue-400 bg-blue-200 dark:bg-blue-900/50">
+                   {(assignmentAverages.filter(a => a !== '-').reduce((sum, a) => sum + parseFloat(a), 0) / assignmentAverages.filter(a => a !== '-').length || 0).toFixed(1)}
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
