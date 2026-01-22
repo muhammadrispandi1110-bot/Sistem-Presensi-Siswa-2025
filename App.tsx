@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
 import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES, HolidayRecord } from './types.ts';
-import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
+import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate, getDatesInRange } from './utils.ts';
 
 interface Notification {
   message: string;
@@ -636,7 +636,7 @@ const App: React.FC = () => {
           case 'Monthly':
               return `Bulan: ${MONTHS_2026[activeMonth].name} ${defaults.startYear}`;
           case 'Semester':
-              return `Semester: ${school.semester} (T.A. ${school.year}/${parseInt(school.year) + 1})`;
+              return `Semester ${activeSemester}: ${activeSemester === 1 ? 'Januari - Juni' : 'Juli - Desember'} ${defaults.startYear}`;
           default:
               return '';
       }
@@ -645,9 +645,13 @@ const App: React.FC = () => {
   // --- REPORT VIEWS ---
   const ReportsView = () => {
     if (!activeClass) return <div className="p-20 text-center text-blue-900 dark:text-blue-100 font-black uppercase text-2xl">Laporan Memuat...</div>;
+    const isSemester = reportTab === 'Semester';
     const dates = reportTab === 'Daily' ? [currentDate] : reportTab === 'Weekly' ? getWeekDates(currentDate, activeClass.schedule) : reportTab === 'Monthly' ? getMonthDates(activeMonth, activeClass.schedule) : getSemesterDates(activeSemester, activeClass.schedule);
     const dateRange = getReportDateRange(reportTab, currentDate, activeMonth, activeSemester);
     const reportTitle = `Laporan Presensi ${activeClass.name}`;
+    
+    // Semester Month Data
+    const semesterMonths = isSemester ? (activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12)) : [];
     
     return (
       <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-blue-50 dark:bg-navy-900 print-container">
@@ -676,6 +680,12 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 pb-3">
+              {isSemester && (
+                <div className="flex items-center gap-2 bg-white dark:bg-navy-800 p-1 border-2 border-blue-900 dark:border-blue-400">
+                    <button onClick={() => setActiveSemester(1)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 1 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 1 (Jan-Jun)</button>
+                    <button onClick={() => setActiveSemester(2)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 2 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 2 (Jul-Des)</button>
+                </div>
+              )}
               {(reportTab === 'Daily' || reportTab === 'Weekly') && (
                   <div className="flex items-center gap-2 bg-white dark:bg-navy-800 p-1 border-2 border-blue-900 dark:border-blue-400">
                       <button onClick={() => { const d = new Date(currentDate); d.setDate(d.getDate() - (reportTab === 'Daily' ? 1 : 7)); setCurrentDate(d); }} className="px-2 font-black hover:text-blue-500">←</button>
@@ -691,63 +701,139 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-auto flex-1 border-4 border-blue-900 dark:border-blue-400 bg-white dark:bg-navy-800 shadow-lg">
+        <div className="overflow-auto flex-1 border-4 border-blue-900 dark:border-blue-400 bg-white dark:bg-navy-800 shadow-lg print-table-container">
           <table className="min-w-full text-sm border-collapse">
             <thead className="bg-blue-50 dark:bg-navy-900 text-blue-900 dark:text-blue-100 border-b-4 border-blue-900 dark:border-blue-400 font-black uppercase">
-                <tr>
-                    <th className="px-4 py-4 text-left border-2 border-blue-900 dark:border-blue-400 text-[10px]">No</th>
-                    <th className="px-6 py-4 text-left border-2 border-blue-900 dark:border-blue-400 min-w-[200px] text-[10px]">Siswa</th>
-                    {dates.map(d => (<th key={formatDate(d)} className="px-2 py-4 text-center border border-blue-200 dark:border-navy-700 text-[10px]">{d.getDate()}</th>))}
-                    <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-emerald-50 dark:bg-emerald-900/20">H</th>
-                    <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-amber-50 dark:bg-amber-900/20">S</th>
-                    <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-sky-50 dark:bg-sky-900/20">I</th>
-                    <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-rose-50 dark:bg-rose-900/20">A</th>
-                    <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-black">%</th>
-                </tr>
+                {isSemester ? (
+                  <>
+                    <tr>
+                      <th rowSpan={2} className="px-4 py-4 text-left border-2 border-blue-900 dark:border-blue-400 text-[10px]">No</th>
+                      <th rowSpan={2} className="px-6 py-4 text-left border-2 border-blue-900 dark:border-blue-400 min-w-[200px] text-[10px]">Siswa</th>
+                      {semesterMonths.map(m => (
+                        <th key={m.name} colSpan={4} className="px-2 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px]">{m.name}</th>
+                      ))}
+                      <th colSpan={4} className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-blue-100 dark:bg-blue-900/40">Total Semester</th>
+                      <th rowSpan={2} className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-blue-200 dark:bg-blue-900 font-black text-white">%</th>
+                    </tr>
+                    <tr>
+                      {semesterMonths.map(m => (
+                        <React.Fragment key={`${m.name}-sub`}>
+                          <th className="px-1 py-2 text-center border border-blue-200 dark:border-navy-700 text-[8px] bg-emerald-50 dark:bg-emerald-900/20">H</th>
+                          <th className="px-1 py-2 text-center border border-blue-200 dark:border-navy-700 text-[8px] bg-amber-50 dark:bg-amber-900/20">S</th>
+                          <th className="px-1 py-2 text-center border border-blue-200 dark:border-navy-700 text-[8px] bg-sky-50 dark:bg-sky-900/20">I</th>
+                          <th className="px-1 py-2 text-center border border-blue-200 dark:border-navy-700 text-[8px] bg-rose-50 dark:bg-rose-900/20">A</th>
+                        </React.Fragment>
+                      ))}
+                      <th className="px-1 py-2 text-center border-2 border-blue-900 dark:border-blue-400 text-[8px] bg-emerald-100 dark:bg-emerald-900/40">H</th>
+                      <th className="px-1 py-2 text-center border-2 border-blue-900 dark:border-blue-400 text-[8px] bg-amber-100 dark:bg-amber-900/40">S</th>
+                      <th className="px-1 py-2 text-center border-2 border-blue-900 dark:border-blue-400 text-[8px] bg-sky-100 dark:bg-sky-900/40">I</th>
+                      <th className="px-1 py-2 text-center border-2 border-blue-900 dark:border-blue-400 text-[8px] bg-rose-100 dark:bg-rose-900/40">A</th>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                      <th className="px-4 py-4 text-left border-2 border-blue-900 dark:border-blue-400 text-[10px]">No</th>
+                      <th className="px-6 py-4 text-left border-2 border-blue-900 dark:border-blue-400 min-w-[200px] text-[10px]">Siswa</th>
+                      {dates.map(d => (<th key={formatDate(d)} className="px-2 py-4 text-center border border-blue-200 dark:border-navy-700 text-[10px]">{d.getDate()}</th>))}
+                      <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-emerald-50 dark:bg-emerald-900/20">H</th>
+                      <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-amber-50 dark:bg-amber-900/20">S</th>
+                      <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-sky-50 dark:bg-sky-900/20">I</th>
+                      <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-rose-50 dark:bg-rose-900/20">A</th>
+                      <th className="px-3 py-4 text-center border-2 border-blue-900 dark:border-blue-400 text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 font-black">%</th>
+                  </tr>
+                )}
             </thead>
             <tbody className="font-bold text-slate-800 dark:text-blue-100">
                 {activeClass.students.map((student, idx) => {
-                  const rowAttendance = dates.map(d => {
-                    const dStr = formatDate(d);
-                    if (holidays.includes(dStr)) return 'LIBUR';
-                    return attendance[student.id]?.[dStr] || 'H';
-                  });
-                  const stats = { 
-                    H: rowAttendance.filter(s => s === 'H').length, 
-                    S: rowAttendance.filter(s => s === 'S').length, 
-                    I: rowAttendance.filter(s => s === 'I').length, 
-                    A: rowAttendance.filter(s => s === 'A').length 
-                  };
-                  
-                  const totalHariEfektif = rowAttendance.filter(s => s !== 'LIBUR').length;
-                  const persentaseHadir = totalHariEfektif > 0 
-                    ? ((stats.H / totalHariEfektif) * 100).toFixed(1) 
-                    : "0.0";
-
-                  return (
-                    <tr key={student.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-800/40 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-700">
-                      <td className="px-4 py-3 text-left border-r-2 border-blue-900 dark:border-blue-400">{idx + 1}</td>
-                      <td className="px-6 py-3 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-[10px] truncate max-w-[300px]">{student.name}</td>
-                      {dates.map(d => {
+                  if (isSemester) {
+                    let totalH = 0, totalS = 0, totalI = 0, totalA = 0, totalEfektifSms = 0;
+                    
+                    const monthlyStats = semesterMonths.map(m => {
+                      const mDates = getMonthDates(m.value, activeClass.schedule);
+                      const mRow = mDates.map(d => {
                         const dStr = formatDate(d);
-                        const isHoliday = holidays.includes(dStr);
-                        const status = isHoliday ? (reportTab === 'Daily' ? 'LIBUR' : 'L') : (attendance[student.id]?.[dStr] || 'H');
-                        return (
-                          <td 
-                            key={dStr} 
-                            className={`border-r border-blue-100 dark:border-navy-700 text-center text-[10px] ${isHoliday ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-extrabold' : ''}`}
-                          >
-                            {status}
-                          </td>
-                        );
-                      })}
-                      <td className="px-3 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 bg-emerald-50 dark:bg-emerald-900/10">{stats.H}</td>
-                      <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-amber-50 dark:bg-amber-900/10">{stats.S}</td>
-                      <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-sky-50 dark:bg-sky-900/10">{stats.I}</td>
-                      <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-rose-50 dark:bg-rose-900/10">{stats.A}</td>
-                      <td className="px-3 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 bg-blue-100 dark:bg-blue-900/30 font-black text-blue-800 dark:text-blue-300">{persentaseHadir}%</td>
-                    </tr>
-                  );
+                        if (holidays.includes(dStr)) return 'LIBUR';
+                        return attendance[student.id]?.[dStr] || 'H';
+                      });
+                      
+                      const stats = {
+                        H: mRow.filter(s => s === 'H').length,
+                        S: mRow.filter(s => s === 'S').length,
+                        I: mRow.filter(s => s === 'I').length,
+                        A: mRow.filter(s => s === 'A').length,
+                        Efektif: mRow.filter(s => s !== 'LIBUR').length
+                      };
+                      
+                      totalH += stats.H; totalS += stats.S; totalI += stats.I; totalA += stats.A;
+                      totalEfektifSms += stats.Efektif;
+                      
+                      return stats;
+                    });
+                    
+                    const persentaseSms = totalEfektifSms > 0 ? ((totalH / totalEfektifSms) * 100).toFixed(1) : "0.0";
+
+                    return (
+                      <tr key={student.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-800/40 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-700">
+                        <td className="px-4 py-3 text-left border-r-2 border-blue-900 dark:border-blue-400">{idx + 1}</td>
+                        <td className="px-6 py-3 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-[10px] truncate max-w-[300px] font-black">{student.name}</td>
+                        {monthlyStats.map((ms, i) => (
+                          <React.Fragment key={`${student.id}-m-${i}`}>
+                            <td className="px-1 py-3 text-center border-r border-blue-100 dark:border-navy-700 text-[10px]">{ms.H}</td>
+                            <td className="px-1 py-3 text-center border-r border-blue-100 dark:border-navy-700 text-[10px] text-amber-600 dark:text-amber-400">{ms.S}</td>
+                            <td className="px-1 py-3 text-center border-r border-blue-100 dark:border-navy-700 text-[10px] text-sky-600 dark:text-sky-400">{ms.I}</td>
+                            <td className="px-1 py-3 text-center border-r border-blue-100 dark:border-navy-700 text-[10px] text-rose-600 dark:text-rose-400">{ms.A}</td>
+                          </React.Fragment>
+                        ))}
+                        <td className="px-1 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 font-black bg-emerald-50 dark:bg-emerald-900/10">{totalH}</td>
+                        <td className="px-1 py-3 text-center border-l border-blue-200 dark:border-navy-700 font-black bg-amber-50 dark:bg-amber-900/10">{totalS}</td>
+                        <td className="px-1 py-3 text-center border-l border-blue-200 dark:border-navy-700 font-black bg-sky-50 dark:bg-sky-900/10">{totalI}</td>
+                        <td className="px-1 py-3 text-center border-l border-blue-200 dark:border-navy-700 font-black bg-rose-50 dark:bg-rose-900/10">{totalA}</td>
+                        <td className="px-3 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 bg-blue-100 dark:bg-blue-900/30 font-black text-blue-900 dark:text-blue-300">{persentaseSms}%</td>
+                      </tr>
+                    );
+                  } else {
+                    const rowAttendance = dates.map(d => {
+                      const dStr = formatDate(d);
+                      if (holidays.includes(dStr)) return 'LIBUR';
+                      return attendance[student.id]?.[dStr] || 'H';
+                    });
+                    const stats = { 
+                      H: rowAttendance.filter(s => s === 'H').length, 
+                      S: rowAttendance.filter(s => s === 'S').length, 
+                      I: rowAttendance.filter(s => s === 'I').length, 
+                      A: rowAttendance.filter(s => s === 'A').length 
+                    };
+                    
+                    const totalHariEfektif = rowAttendance.filter(s => s !== 'LIBUR').length;
+                    const persentaseHadir = totalHariEfektif > 0 
+                      ? ((stats.H / totalHariEfektif) * 100).toFixed(1) 
+                      : "0.0";
+
+                    return (
+                      <tr key={student.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-800/40 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-700">
+                        <td className="px-4 py-3 text-left border-r-2 border-blue-900 dark:border-blue-400">{idx + 1}</td>
+                        <td className="px-6 py-3 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-[10px] truncate max-w-[300px]">{student.name}</td>
+                        {dates.map(d => {
+                          const dStr = formatDate(d);
+                          const isHoliday = holidays.includes(dStr);
+                          const status = isHoliday ? (reportTab === 'Daily' ? 'LIBUR' : 'L') : (attendance[student.id]?.[dStr] || 'H');
+                          return (
+                            <td 
+                              key={dStr} 
+                              className={`border-r border-blue-100 dark:border-navy-700 text-center text-[10px] ${isHoliday ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 font-extrabold' : ''}`}
+                            >
+                              {status}
+                            </td>
+                          );
+                        })}
+                        <td className="px-3 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 bg-emerald-50 dark:bg-emerald-900/10">{stats.H}</td>
+                        <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-amber-50 dark:bg-amber-900/10">{stats.S}</td>
+                        <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-sky-50 dark:bg-sky-900/10">{stats.I}</td>
+                        <td className="px-3 py-3 text-center border-l border-blue-200 dark:border-navy-700 bg-rose-50 dark:bg-rose-900/10">{stats.A}</td>
+                        <td className="px-3 py-3 text-center border-l-2 border-blue-900 dark:border-blue-400 bg-blue-100 dark:bg-blue-900/30 font-black text-blue-800 dark:text-blue-300">{persentaseHadir}%</td>
+                      </tr>
+                    );
+                  }
                 })}
             </tbody>
           </table>
