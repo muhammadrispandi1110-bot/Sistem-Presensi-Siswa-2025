@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { APP_CONFIG } from './config.ts';
 import { CLASSES as INITIAL_CLASSES } from './constants.tsx';
 import { AttendanceRecord, AttendanceStatus, ViewType, Student, ClassData, Assignment, SubmissionData, DAY_NAMES, HolidayRecord } from './types.ts';
-import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate, getDatesInRange } from './utils.ts';
+import { MONTHS_2026, formatDate, getMonthDates, getWeekDates, getSemesterDates, isFutureDate, getNextTeachingDate } from './utils.ts';
 
 interface Notification {
   message: string;
@@ -608,7 +608,7 @@ const App: React.FC = () => {
       else if (type === 'student') setSelectedStudentIds([]);
       else if (type === 'assignment') setSelectedAssignmentIds([]);
       await fetchFromCloud(true);
-    } catch (err: any) { showToast(`Gagal: ${err.message}`, 'error'); } finally { setIsSyncing(false); }
+    } catch (err: any) { showToast(`Gagal: ${err.message}`, "error"); } finally { setIsSyncing(false); }
   };
 
   const handleSubmissionToggle = async (assignmentId: string, studentId: string, isSubmitted: boolean) => {
@@ -650,7 +650,6 @@ const App: React.FC = () => {
     const dateRange = getReportDateRange(reportTab, currentDate, activeMonth, activeSemester);
     const reportTitle = `Laporan Presensi ${activeClass.name}`;
     
-    // Semester Month Data
     const semesterMonths = isSemester ? (activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12)) : [];
     
     return (
@@ -847,13 +846,19 @@ const App: React.FC = () => {
     const reportTitle = `Rekap Nilai & Tugas ${activeClass.name}`;
     const dateRange = `Tahun Ajaran ${school.year} / Semester ${school.semester}`;
 
-    // Perhitungan Rata-rata per Tugas (Assignment)
+    // Perhitungan Rata-rata per Tugas (Vertical)
     const assignmentAverages = activeClass.assignments?.map(a => {
       const scores = Object.values(a.submissions)
         .map(sub => parseFloat(sub.score))
         .filter(score => !isNaN(score));
       return scores.length > 0 ? (scores.reduce((sum, s) => sum + s, 0) / scores.length).toFixed(1) : '-';
     }) || [];
+
+    // Perhitungan Rata-rata Keseluruhan Kelas (Grand Average)
+    const validAverages = assignmentAverages.filter(avg => avg !== '-').map(avg => parseFloat(avg));
+    const grandAverage = validAverages.length > 0 
+      ? (validAverages.reduce((sum, val) => sum + val, 0) / validAverages.length).toFixed(1)
+      : '-';
 
     return (
       <div className="flex-1 p-6 sm:p-10 overflow-y-auto space-y-8 bg-blue-50 dark:bg-navy-900 print-container">
@@ -864,24 +869,34 @@ const App: React.FC = () => {
         </div>
 
         <div className="flex justify-between items-center border-b-4 border-blue-900 dark:border-blue-400 pb-8 print-hide">
-          <h2 className="text-5xl font-black text-blue-900 dark:text-blue-100 uppercase tracking-tighter">Rekap Nilai</h2>
-          <button onClick={() => window.print()} className="bg-blue-900 text-white dark:bg-blue-500 dark:text-white px-10 py-5 font-black border-4 border-blue-900 dark:border-blue-100 hover:bg-blue-800 transition-all uppercase shadow-[6px_6px_0px_0px_rgba(30,58,138,1)]">CETAK</button>
+          <div className="space-y-1">
+            <h2 className="text-5xl font-black text-blue-900 dark:text-blue-100 uppercase tracking-tighter">Rekap Nilai</h2>
+            <p className="text-blue-800 dark:text-blue-400 font-black text-xs uppercase tracking-[0.2em] opacity-60">SMAN 11 MKS • {activeClass.name}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="bg-white dark:bg-navy-800 border-4 border-blue-900 dark:border-blue-400 px-6 py-2 shadow-[4px_4px_0px_0px_rgba(30,58,138,1)]">
+               <p className="text-[8px] font-black uppercase text-blue-900 dark:text-blue-400 opacity-60">Rata-rata Kelas</p>
+               <p className="text-2xl font-black text-blue-900 dark:text-blue-100 leading-none">{grandAverage}</p>
+            </div>
+            <button onClick={() => window.print()} className="bg-blue-900 text-white dark:bg-blue-500 dark:text-white px-10 py-5 font-black border-4 border-blue-900 dark:border-blue-100 hover:bg-blue-800 transition-all uppercase shadow-[6px_6px_0px_0px_rgba(30,58,138,1)]">CETAK</button>
+          </div>
         </div>
-        <div className="bg-white dark:bg-navy-800 border-4 border-blue-900 dark:border-blue-400 overflow-hidden shadow-xl print-table-container">
+
+        <div className="bg-white dark:bg-navy-800 border-4 border-blue-900 dark:border-blue-400 overflow-hidden shadow-2xl print-table-container">
           <table className="w-full text-sm border-collapse">
             <thead className="bg-blue-900 dark:bg-blue-400 text-white dark:text-navy-900 border-b-4 border-blue-900 dark:border-blue-100 font-black uppercase">
               <tr>
-                <th className="p-6 text-left w-12 border-2 border-blue-100 dark:border-navy-900 text-[10px]">No</th>
-                <th className="p-6 text-left border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest">Siswa</th>
+                <th className="p-4 text-left w-12 border-2 border-blue-100 dark:border-navy-900 text-[10px]">No</th>
+                <th className="p-4 text-left border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest min-w-[200px]">Nama Siswa</th>
                 {activeClass.assignments?.map(a => (
-                  <th key={a.id} className="p-6 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest">{a.title}</th>
+                  <th key={a.id} className="p-4 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest">{a.title}</th>
                 ))}
-                <th className="p-6 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest bg-blue-800 dark:bg-blue-600">Rata-rata</th>
+                <th className="p-4 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest bg-blue-800 dark:bg-blue-600 font-black">Rerata</th>
               </tr>
             </thead>
             <tbody className="font-bold text-slate-800 dark:text-blue-50">
               {activeClass.students.map((s, idx) => {
-                // Perhitungan Rata-rata per Siswa
+                // Perhitungan Rata-rata per Siswa (Horizontal)
                 const studentScores = activeClass.assignments?.map(a => parseFloat(a.submissions[s.id]?.score))
                   .filter(score => !isNaN(score)) || [];
                 const studentAverage = studentScores.length > 0 
@@ -889,32 +904,42 @@ const App: React.FC = () => {
                   : '-';
 
                 return (
-                  <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b-2 border-blue-100 dark:border-navy-900">
-                    <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 text-center">{idx + 1}</td>
-                    <td className="p-6 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-xs">{s.name}</td>
+                  <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-900">
+                    <td className="p-4 border-r-2 border-blue-900 dark:border-blue-400 text-center">{idx + 1}</td>
+                    <td className="p-4 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-[10px] font-black">{s.name}</td>
                     {activeClass.assignments?.map(a => (
-                      <td key={a.id} className="p-6 text-center border-r-2 border-blue-900 dark:border-blue-400">
+                      <td key={a.id} className="p-4 text-center border-r-2 border-blue-900 dark:border-blue-400 text-[10px]">
                         {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
                       </td>
                     ))}
-                    <td className="p-6 text-center border-r-2 border-blue-900 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30 font-black text-blue-800 dark:text-blue-300">
+                    <td className="p-4 text-center border-r-2 border-blue-900 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30 font-black text-blue-900 dark:text-blue-300">
                       {studentAverage}
                     </td>
                   </tr>
                 );
               })}
-              {/* Footer Row for Assignment Averages */}
+              
+              {/* Footer Row for Assignment Averages (Vertical) */}
               <tr className="bg-blue-100 dark:bg-navy-700 font-black uppercase text-blue-900 dark:text-blue-100">
-                <td colSpan={2} className="p-6 border-2 border-blue-900 dark:border-blue-400 text-right tracking-widest">Rata-rata Kelas</td>
+                <td colSpan={2} className="p-5 border-2 border-blue-900 dark:border-blue-400 text-right tracking-widest text-xs">Rerata Tugas Kelas</td>
                 {assignmentAverages.map((avg, i) => (
-                  <td key={i} className="p-6 text-center border-2 border-blue-900 dark:border-blue-400">{avg}</td>
+                  <td key={i} className="p-5 text-center border-2 border-blue-900 dark:border-blue-400 text-xs">{avg}</td>
                 ))}
-                <td className="p-6 text-center border-2 border-blue-900 dark:border-blue-400 bg-blue-200 dark:bg-blue-900/50">
-                   {(assignmentAverages.filter(a => a !== '-').reduce((sum, a) => sum + parseFloat(a), 0) / assignmentAverages.filter(a => a !== '-').length || 0).toFixed(1)}
+                <td className="p-5 text-center border-2 border-blue-900 dark:border-blue-400 bg-blue-900 dark:bg-blue-400 text-white dark:text-navy-900 text-xs">
+                   {grandAverage}
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+        
+        <div className="bg-blue-900/5 dark:bg-blue-400/5 p-6 border-4 border-dashed border-blue-900 dark:border-blue-400 print-hide">
+            <h4 className="font-black text-blue-900 dark:text-blue-100 uppercase text-sm mb-2">Informasi Rerata</h4>
+            <ul className="text-xs font-bold text-slate-600 dark:text-blue-300 space-y-1 list-disc list-inside uppercase opacity-80 tracking-wide">
+              <li>Rerata siswa dihitung dari semua nilai numerik yang ada.</li>
+              <li>Jika kolom nilai berisi centang (✓), maka tugas tersebut dianggap tuntas namun tidak menyumbang angka ke rerata.</li>
+              <li>Tugas yang belum dinilai (-) tidak dihitung sebagai pembagi.</li>
+            </ul>
         </div>
       </div>
     );
