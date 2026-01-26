@@ -358,7 +358,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [savingItems, setSavingItems] = useState<string[]>([]);
-  const [activeSemester, setActiveSemester] = useState<1 | 2>(1);
+  const [activeSemester, setActiveSemester] = useState<1 | 2>(1); // 1: Ganjil (Jul-Des), 2: Genap (Jan-Jun)
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
   });
@@ -383,6 +383,7 @@ const App: React.FC = () => {
   const [reportTab, setReportTab] = useState<'Daily' | 'Weekly' | 'Monthly' | 'Semester'>('Daily');
   const [adminTab, setAdminTab] = useState<'Kelas' | 'Siswa' | 'Tugas' | 'Database'>('Kelas');
   const [currentDate, setCurrentDate] = useState(() => {
+    // Mulai dari Juli 2026 jika Semester 1 dipilih
     const d = new Date(defaults.startYear, defaults.startMonth, 1);
     d.setHours(0,0,0,0);
     return d;
@@ -636,7 +637,7 @@ const App: React.FC = () => {
           case 'Monthly':
               return `Bulan: ${MONTHS_2026[activeMonth].name} ${defaults.startYear}`;
           case 'Semester':
-              return `Semester ${activeSemester}: ${activeSemester === 1 ? 'Januari - Juni' : 'Juli - Desember'} ${defaults.startYear}`;
+              return `Semester ${activeSemester}: ${activeSemester === 1 ? 'Juli - Desember' : 'Januari - Juni'} ${defaults.startYear}`;
           default:
               return '';
       }
@@ -650,7 +651,8 @@ const App: React.FC = () => {
     const dateRange = getReportDateRange(reportTab, currentDate, activeMonth, activeSemester);
     const reportTitle = `Laporan Presensi ${activeClass.name}`;
     
-    const semesterMonths = isSemester ? (activeSemester === 1 ? MONTHS_2026.slice(0, 6) : MONTHS_2026.slice(6, 12)) : [];
+    // Semester 1: Jul-Des, Semester 2: Jan-Jun
+    const semesterMonths = isSemester ? (activeSemester === 1 ? MONTHS_2026.slice(6, 12) : MONTHS_2026.slice(0, 6)) : [];
     
     return (
       <div className="flex-1 p-6 sm:p-10 flex flex-col overflow-hidden bg-blue-50 dark:bg-navy-900 print-container">
@@ -681,8 +683,8 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3 pb-3">
               {isSemester && (
                 <div className="flex items-center gap-2 bg-white dark:bg-navy-800 p-1 border-2 border-blue-900 dark:border-blue-400">
-                    <button onClick={() => setActiveSemester(1)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 1 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 1 (Jan-Jun)</button>
-                    <button onClick={() => setActiveSemester(2)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 2 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 2 (Jul-Des)</button>
+                    <button onClick={() => setActiveSemester(1)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 1 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 1 (Jul-Des)</button>
+                    <button onClick={() => setActiveSemester(2)} className={`px-4 py-1 text-[10px] font-black uppercase ${activeSemester === 2 ? 'bg-blue-900 text-white dark:bg-blue-400 dark:text-navy-900' : 'text-inherit hover:bg-blue-50'}`}>SMS 2 (Jan-Jun)</button>
                 </div>
               )}
               {(reportTab === 'Daily' || reportTab === 'Weekly') && (
@@ -898,7 +900,6 @@ const App: React.FC = () => {
             </thead>
             <tbody className="font-bold text-slate-800 dark:text-blue-50">
               {activeClass.students.map((s, idx) => {
-                // RUMUS BARU: Total Nilai dibagi dengan TOTAL TUGAS yang tersedia (menganggap tidak mengumpul sebagai 0)
                 const totalStudentScore = activeClass.assignments?.reduce((sum, a) => {
                     const scoreVal = parseFloat(a.submissions[s.id]?.score);
                     return sum + (isNaN(scoreVal) ? 0 : scoreVal);
@@ -909,7 +910,7 @@ const App: React.FC = () => {
                   : '-';
 
                 return (
-                  <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-900">
+                  <tr key={s.id} className="odd:bg-blue-50/20 dark:odd:bg-navy-700/20 hover:bg-blue-50 dark:hover:bg-navy-700/50 border-b border-blue-100 dark:border-navy-700">
                     <td className="p-4 border-r-2 border-blue-900 dark:border-blue-400 text-center">{idx + 1}</td>
                     <td className="p-4 border-r-2 border-blue-900 dark:border-blue-400 uppercase text-[10px] font-black">{s.name}</td>
                     {activeClass.assignments?.map(a => (
@@ -924,7 +925,6 @@ const App: React.FC = () => {
                 );
               })}
               
-              {/* Footer Row for Assignment Averages (Vertical) */}
               <tr className="bg-blue-100 dark:bg-navy-700 font-black uppercase text-blue-900 dark:text-blue-100">
                 <td colSpan={2} className="p-5 border-2 border-blue-900 dark:border-blue-400 text-right tracking-widest text-xs">Rerata Tugas Kelas</td>
                 {assignmentAverages.map((avg, i) => (

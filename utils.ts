@@ -16,7 +16,6 @@ export const MONTHS_2026 = [
 
 /**
  * Mengubah objek Date menjadi string format YYYY-MM-DD menggunakan waktu lokal.
- * Penting untuk menghindari masalah zona waktu yang sering membuat tanggal bergeser +/- 1 hari.
  */
 export const formatDate = (date: Date): string => {
   const d = new Date(date);
@@ -63,7 +62,6 @@ export const getWeekDates = (baseDate: Date, schedule?: number[]): Date[] => {
   const d = new Date(baseDate);
   d.setHours(0,0,0,0);
   const day = d.getDay();
-  // Hitung selisih hari untuk mendapatkan hari Senin (1)
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); 
   const monday = new Date(d.getFullYear(), d.getMonth(), diff);
   const friday = new Date(monday);
@@ -72,9 +70,13 @@ export const getWeekDates = (baseDate: Date, schedule?: number[]): Date[] => {
   return getDatesInRange(monday, friday, schedule);
 };
 
+/**
+ * Semester 1 (Ganjil): Juli (6) - Desember (11)
+ * Semester 2 (Genap): Januari (0) - Juni (5)
+ */
 export const getSemesterDates = (semester: number = 1, schedule?: number[]): Date[] => {
-  const startMonth = semester === 1 ? 0 : 6;
-  const endMonth = semester === 1 ? 5 : 11;
+  const startMonth = semester === 1 ? 6 : 0;
+  const endMonth = semester === 1 ? 11 : 5;
   const start = new Date(2026, startMonth, 1);
   const end = new Date(2026, endMonth + 1, 0);
   return getDatesInRange(start, end, schedule);

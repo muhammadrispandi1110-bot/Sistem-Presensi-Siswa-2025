@@ -11,7 +11,7 @@ export const APP_CONFIG = {
     name: "SMAN 11 MAKASSAR",
     year: "2026",
     semester: "Ganjil", // Ganjil / Genap
-    periodName: "Semester 1 (Jan-Jun)",
+    periodName: "Periode Akademik 2026",
   },
 
   // Pengaturan Database (Supabase)
@@ -29,7 +29,7 @@ export const APP_CONFIG = {
   // Pengaturan Default Aplikasi
   defaults: {
     teachingDays: [1, 2, 3, 4, 5], 
-    startMonth: 0, 
+    startMonth: 6, // Default ke Juli (Awal Semester Ganjil)
     startYear: 2026,
   }
 };
