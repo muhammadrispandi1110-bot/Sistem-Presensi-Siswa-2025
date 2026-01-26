@@ -846,6 +846,8 @@ const App: React.FC = () => {
     const reportTitle = `Rekap Nilai & Tugas ${activeClass.name}`;
     const dateRange = `Tahun Ajaran ${school.year} / Semester ${school.semester}`;
 
+    const totalTasks = activeClass.assignments?.length || 0;
+
     // Perhitungan Rata-rata per Tugas (Vertical)
     const assignmentAverages = activeClass.assignments?.map(a => {
       const scores = Object.values(a.submissions)
@@ -891,16 +893,19 @@ const App: React.FC = () => {
                 {activeClass.assignments?.map(a => (
                   <th key={a.id} className="p-4 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest">{a.title}</th>
                 ))}
-                <th className="p-4 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest bg-blue-800 dark:bg-blue-600 font-black">Rerata</th>
+                <th className="p-4 text-center border-2 border-blue-100 dark:border-navy-900 text-[10px] tracking-widest bg-blue-800 dark:bg-blue-600 font-black">Rerata Akhir</th>
               </tr>
             </thead>
             <tbody className="font-bold text-slate-800 dark:text-blue-50">
               {activeClass.students.map((s, idx) => {
-                // Perhitungan Rata-rata per Siswa (Horizontal)
-                const studentScores = activeClass.assignments?.map(a => parseFloat(a.submissions[s.id]?.score))
-                  .filter(score => !isNaN(score)) || [];
-                const studentAverage = studentScores.length > 0 
-                  ? (studentScores.reduce((sum, val) => sum + val, 0) / studentScores.length).toFixed(1)
+                // RUMUS BARU: Total Nilai dibagi dengan TOTAL TUGAS yang tersedia (menganggap tidak mengumpul sebagai 0)
+                const totalStudentScore = activeClass.assignments?.reduce((sum, a) => {
+                    const scoreVal = parseFloat(a.submissions[s.id]?.score);
+                    return sum + (isNaN(scoreVal) ? 0 : scoreVal);
+                }, 0) || 0;
+                
+                const studentAverage = totalTasks > 0 
+                  ? (totalStudentScore / totalTasks).toFixed(1)
                   : '-';
 
                 return (
@@ -912,7 +917,7 @@ const App: React.FC = () => {
                         {a.submissions[s.id]?.score || (a.submissions[s.id]?.isSubmitted ? '✓' : '-')}
                       </td>
                     ))}
-                    <td className="p-4 text-center border-r-2 border-blue-900 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30 font-black text-blue-900 dark:text-blue-300">
+                    <td className={`p-4 text-center border-r-2 border-blue-900 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30 font-black ${parseFloat(studentAverage) < 70 ? 'text-rose-600 dark:text-rose-400' : 'text-blue-900 dark:text-blue-300'}`}>
                       {studentAverage}
                     </td>
                   </tr>
@@ -934,11 +939,11 @@ const App: React.FC = () => {
         </div>
         
         <div className="bg-blue-900/5 dark:bg-blue-400/5 p-6 border-4 border-dashed border-blue-900 dark:border-blue-400 print-hide">
-            <h4 className="font-black text-blue-900 dark:text-blue-100 uppercase text-sm mb-2">Informasi Rerata</h4>
+            <h4 className="font-black text-blue-900 dark:text-blue-100 uppercase text-sm mb-2">Informasi Rerata Seimbang</h4>
             <ul className="text-xs font-bold text-slate-600 dark:text-blue-300 space-y-1 list-disc list-inside uppercase opacity-80 tracking-wide">
-              <li>Rerata siswa dihitung dari semua nilai numerik yang ada.</li>
-              <li>Jika kolom nilai berisi centang (✓), maka tugas tersebut dianggap tuntas namun tidak menyumbang angka ke rerata.</li>
-              <li>Tugas yang belum dinilai (-) tidak dihitung sebagai pembagi.</li>
+              <li>Rerata akhir dihitung dengan membagi total nilai dengan <strong>{totalTasks} tugas</strong> (seluruh tugas yang tersedia).</li>
+              <li>Siswa yang tidak mengumpulkan tugas dianggap mendapatkan nilai <strong>0</strong> untuk tugas tersebut.</li>
+              <li>Ini memastikan nilai akhir mencerminkan kedisiplinan siswa dalam menyelesaikan seluruh kewajiban tugas.</li>
             </ul>
         </div>
       </div>
